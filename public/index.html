@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>File Explorer</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <script src="http://192.168.43.133:10000/codemirror/lib/codemirror.js"></script>
+    <script src="http://192.168.43.133:10000/codemirror/mode/clike/clike.js"></script>
+    <script src="http://192.168.43.133:10000/codemirror/addon/comment/comment.js"></script>
+    <link
+      rel="stylesheet"
+      href="http://192.168.43.133:10000/codemirror/theme/monokai.css" />
+    <link
+      rel="stylesheet"
+      href="http://192.168.43.133:10000/codemirror/lib/codemirror.css" />
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <!-- Loader -->
+    <div class="loader-parent">
+      <div class="loader-container">
+        <div class="loader"></div>
+        <div class="title">Opening in editor, please wait...</div>
+      </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast">
+      <span id="toast-message"></span>
+    </div>
+
+    <!-- App Container -->
+    <div class="app-container">
+      <header>
+        <div class="logo">
+          <i class="fas fa-folder-tree"></i>
+          <span>File Explorer C++</span>
+        </div>
+        <button
+          id="theme-toggle"
+          class="theme-toggle"
+          aria-label="Toggle theme">
+          <i class="fas fa-moon"></i>
+        </button>
+      </header>
+      <div class="container">
+        <div class="search-con">
+          <div class="search-con-inner">
+            <div id="breadcrumb" class="breadcrumb">
+              <i class="fas fa-home"></i> <span> Home</span>
+            </div>
+          </div>
+          <div class="search-container">
+            <button class="back">
+              <i class="fa-solid fa-left-long"></i>
+            </button>
+            <input
+              type="text"
+              id="search-input"
+              placeholder="Search files or folders... "
+              autocomplete="off"
+              spellcheck="false"
+              aria-label="Search files or folders" />
+            <button id="search-button" class="action-btn">
+              <i class="fas fa-search"></i>
+            </button>
+          </div>
+        </div>
+        <div class="empty-folder"></div>
+        <div id="file-list"></div>
+      </div>
+
+      <footer>
+        <p>File Explorer C++ &copy; 2025 | Professional Edition</p>
+      </footer>
+    </div>
+
+    <script src="./script.js"></script>
+  </body>
+</html>

@@ -1,0 +1,147 @@
+import cors from 'cors';
+import 'dotenv/config';
+import express from 'express';
+import fs from 'fs';
+import fetch from 'node-fetch';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const app = express();
+const folderPath = path.join(__dirname, 'cpp');
+
+const mainDomain = 'https://file-manager-cpp.onrender.com';
+const requestedDomain = 'https://compiler-cpp.onrender.com';
+
+app.use(express.static('public'));
+app.use(express.json());
+app.use(cors({ origin: requestedDomain }));
+
+const getFolderStructure = (dir, basePath = '') => {
+  let structure = [];
+  try {
+    let items = fs.readdirSync(dir);
+    items.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+
+    items.forEach((item) => {
+      const fullPath = path.join(dir, item);
+      const relativePath = path.join(basePath, item);
+      const stats = fs.statSync(fullPath);
+
+      if (stats.isDirectory()) {
+        structure.push({
+          type: 'folder',
+          name: item,
+          path: relativePath,
+          children: getFolderStructure(fullPath, relativePath), // Recursive call for subfolders
+        });
+      } else if (stats.isFile()) {
+        structure.push({
+          type: 'file',
+          name: item,
+          path: relativePath,
+          icon: getFileIcon(item),
+        });
+      }
+    });
+  } catch (err) {
+    console.error('Error reading folder:', err);
+  }
+  return structure;
+};
+
+const getFileIcon = (filename) => {
+  const ext = path.extname(filename).toLowerCase();
+  const icons = {
+    '.cpp': '📄',
+    '.docx': '📝',
+    '.js': '📜',
+  };
+  return icons[ext] || '📄';
+};
+
+// API to get file structure
+app.post('/send-file', (req, res) => {
+  const items = getFolderStructure(folderPath);
+  const folders = items.filter((item) => item.type === 'folder');
+  const files = items.filter((item) => item.type === 'file');
+  res.json({ folders, files });
+});
+
+// Secure function to normalize and validate file paths
+const getSafePath = (requestedFile) => {
+  const safePath = path.normalize(requestedFile).replace(/^(\.\.[\/\\])+/, '');
+  return path.join(folderPath, safePath);
+};
+
+// API to get file content
+app.post('/files/*', async (req, res) => {
+  const requestedFile = req.params[0];
+  const filePath = getSafePath(requestedFile);
+
+  if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+    const content = fs.readFileSync(filePath, 'utf-8');
+    res.json({ content });
+  } else {
+    res.status(404).json({ error: 'File not found' });
+  }
+});
+
+let updatedCode = {};
+
+// API to handle file viewing and updating code state
+app.post('/files-view/*', async (req, res) => {
+  const requestedFile = req.params[0];
+  const filePath = getSafePath(requestedFile);
+
+  if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+    const content = fs.readFileSync(filePath, 'utf-8');
+    updatedCode = { content, file: requestedFile };
+    res.json({ message: 'ok' });
+  } else {
+    res.status(404).json({ error: 'File not found' });
+  }
+});
+
+app.post('/get-url', async (req, res) => {
+  const fetchUrl = `${requestedDomain}/send-url`;
+  try {
+    const response = await fetch(fetchUrl, { method: 'POST' });
+    if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+
+    const data = await response.json();
+    if (!data.message) return res.status(404).join({ message: false });
+
+    res.status(200).json(data);
+  } catch (error) {
+    res.status(404).json({ message: 'not found' });
+    console.error('Fetch error:', error);
+    return { error: 'Failed to fetch code from external service' };
+  }
+});
+
+// API to send stored code
+app.post('/send-code', (req, res) => {
+  sendCode(res);
+});
+
+// Function to send stored code data
+function sendCode(res) {
+  if (!updatedCode.content) {
+    res.json({ message: false });
+    return;
+  }
+  res.json({
+    message: true,
+    type: 'editor',
+    filename: updatedCode.file,
+    code: updatedCode.content,
+  });
+}
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server is running on ${mainDomain}`);
+});
