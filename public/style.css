@@ -448,6 +448,17 @@ button.action-btn:hover {
   button.action-btn i {
     margin-right: 0;
   }
+
+  CodeMirror {
+  height: 100%;
+  font-size: 15px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  letter-spacing: 0.02rem;
+  line-height: 1.5;
+  padding: 0;
+  background-color: var(--bg-secondary) !important;
+  margin-top: 1.5rem;
+}
 }
 
 @media (max-width: 320px) {
