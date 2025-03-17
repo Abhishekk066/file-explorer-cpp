@@ -224,7 +224,7 @@ function setEditor(content, filename) {
   try {
     var editor = CodeMirror.fromTextArea(textArea, {
       mode: 'text/x-c++src',
-      theme: 'monokai',
+      theme: currentTheme === 'light' ? 'eclipse' : 'monokai',
       lineNumbers: true,
       tabSize: 4,
       indentUnit: 4,
