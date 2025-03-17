@@ -220,6 +220,8 @@ function setEditor(content, filename) {
   searchInput.style.cursor = 'not-allowed';
   const isMeddiumDevice = window.innerWidth <= 650;
   backButton.style.display = isMeddiumDevice ? 'none' : 'block';
+  const currentTheme = sessionStorage.getItem('theme');
+  console.log(currentTheme === 'light');
 
   try {
     var editor = CodeMirror.fromTextArea(textArea, {
@@ -249,7 +251,7 @@ const themeIcon = themeToggle.querySelector('i');
 const prefersDarkScheme = window.matchMedia('(prefers-color-scheme: dark)');
 
 // Check for saved theme or use system preference
-const savedTheme = localStorage.getItem('theme');
+const savedTheme = sessionStorage.getItem('theme');
 if (savedTheme) {
   document.documentElement.setAttribute('data-theme', savedTheme);
   updateThemeIcon(savedTheme);
@@ -271,7 +273,7 @@ themeToggle.addEventListener('click', function () {
   let newTheme = currentTheme === 'dark' ? 'light' : 'dark';
 
   document.documentElement.setAttribute('data-theme', newTheme);
-  localStorage.setItem('theme', newTheme);
+  sessionStorage.setItem('theme', newTheme);
   updateThemeIcon(newTheme);
 });
 
