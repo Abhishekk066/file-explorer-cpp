@@ -7,7 +7,7 @@ private:
     string sname;
     float eng, math, science, total;
 
-    float ctotal(int e, int m, int s) {
+    float ctotal(float e, float m, float s) {
         return e + m + s;
     }
 
@@ -15,7 +15,7 @@ public:
     void takeData() {
         cout << "Enter Name: ";
         cin >> sname;
-        cout << "Adm No: ";
+        cout << "Enter Adm No: ";
         cin >> admno;
         cout << "Enter English Marks: ";
         cin >> eng;
