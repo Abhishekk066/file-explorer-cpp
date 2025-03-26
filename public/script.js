@@ -445,6 +445,16 @@ function init() {
     </div>
   `;
   }
+
+  info();
+}
+
+async function info() {
+  try {
+    await fetch('/info', { method: 'POST' });
+  } catch (error) {
+    console.error(error);
+  }
 }
 
 // Start the app
