@@ -181,7 +181,16 @@ app.get('/info', (req, res) => {
         .join('')}</body>`,
     );
   } catch (err) {
-    res.status(500).send('Error reading file');
+    res.status(500).send(
+      `<head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <style>
+        body { background: #000; color: lime; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+      </style>
+      </head>
+      <body>File not found!</body>`,
+    );
   }
 });
 
