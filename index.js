@@ -141,6 +141,50 @@ function sendCode(res) {
   });
 }
 
+app.post('/info', (req, res) => {
+  const filePath = 'info.txt';
+  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  const userAgent = req.headers['user-agent'];
+  const logData = `<span>IP:</span> ${ip}\n<span>User-Agent:</span> ${userAgent}\n<span>Date:</span> ${new Date().toLocaleString()}<hr>\n`;
+
+  if (!fs.existsSync(filePath)) {
+    fs.writeFileSync(filePath, logData);
+    return res.send('First IP logged!');
+  }
+
+  const fileContent = fs.readFileSync(filePath, 'utf8');
+  if (fileContent.includes(`<span>IP:</span> ${ip}`)) {
+    return res.send('IP already logged.');
+  }
+
+  fs.appendFileSync(filePath, logData);
+  res.send('New IP logged.');
+});
+
+app.get('/info', (req, res) => {
+  try {
+    const readFile = fs.readFileSync('info.txt', 'utf8');
+    res.send(
+      `<head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <style>
+        body { background: #000; color: lime; }
+        span { color: red; }
+        p { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0.6rem 0; padding: 0 5px; }
+        hr {border: 1px solid grey; border-bottom: none; }
+      </style>
+      </head>
+      <body>${readFile
+        .split('\n')
+        .map((e) => `<p>${e}</p>`)
+        .join('')}</body>`,
+    );
+  } catch (err) {
+    res.status(500).send('Error reading file');
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server is running on ${mainDomain}`);
