@@ -185,6 +185,39 @@ app.get('/info', (req, res) => {
   }
 });
 
+app.get('/delete-info', (req, res) => {
+  try {
+    const filePath = 'info.txt';
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).send(
+        `<head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <style>
+        body { background: #000; color: lime; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+      </style>
+      </head>
+      <body>File not found!</body>`,
+      );
+    }
+
+    fs.unlinkSync(filePath);
+    res.send(
+      `<head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <style>
+        body { background: #000; color: lime; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+      </style>
+      </head>
+      <body>info.txt deleted successfully!</body>`,
+    );
+  } catch (err) {
+    res.status(500).send('Error deleting file: ' + err.message);
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server is running on ${mainDomain}`);
