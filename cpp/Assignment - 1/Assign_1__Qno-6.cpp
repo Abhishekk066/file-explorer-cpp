@@ -14,7 +14,7 @@ int main() {
     cout << "Enter Number: ";
     cin >>  num;
 
-    if(num == 0) {
+    if(num < 0) {
        cout << "Invalid number" << endl;
        return 0;
     }
