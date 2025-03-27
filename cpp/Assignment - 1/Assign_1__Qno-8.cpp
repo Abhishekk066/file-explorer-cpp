@@ -10,7 +10,7 @@ int main() {
 
     cout << "Sum Series of 1 + 1/2 + 1/3 + 1/4.. + 1/n is: " << endl;
 
-    for(int i = 1; i < num; i++){
+    for(int i = 1; i <= num; i++){
        sum += 1.0/i;
     }
 
