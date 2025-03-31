@@ -120,7 +120,7 @@ function createFileElement(file) {
   fileLink.textContent = file.name;
   fileLink.onclick = (e) => {
     e.preventDefault();
-    fetchFileContent(file.path);
+    //fetchFileContent(file.path);
   };
 
   const fileBtn = document.createElement('button');
@@ -183,28 +183,28 @@ function toggleFolder(folderDiv, folder, isRestoring = false) {
 }
 
 // Fetch and display file content
-async function fetchFileContent(filePath) {
-  try {
-    showLoading(true, 'Loading file content...');
+// async function fetchFileContent(filePath) {
+//   try {
+//     showLoading(true, 'Loading file content...');
 
-    const res = await fetch(`/files/${filePath}`, { method: 'POST' });
-    if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`);
+//     const res = await fetch(`/files/${filePath}`, { method: 'POST' });
+//     if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`);
 
-    const data = await res.json();
-    showLoading(false);
-    showFilePreview(data.content, filePath);
-  } catch (error) {
-    console.error('Error fetching file:', error);
-    showLoading(false);
-    //showToast('Failed to fetch file content', 'error');
-  }
-}
+//     const data = await res.json();
+//     showLoading(false);
+//     showFilePreview(data.content, filePath);
+//   } catch (error) {
+//     console.error('Error fetching file:', error);
+//     showLoading(false);
+//     //showToast('Failed to fetch file content', 'error');
+//   }
+// }
 
 const modalDiv = document.createElement('div');
 
-function showFilePreview(content, filename) {
-  //setEditor(content, filename);
-}
+// function showFilePreview(content, filename) {
+//   setEditor(content, filename);
+// }
 
 function setEditor(content, filename) {
   const textArea = document.createElement('textarea');
