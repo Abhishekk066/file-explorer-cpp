@@ -121,6 +121,7 @@ function createFileElement(file) {
   fileLink.onclick = (e) => {
     e.preventDefault();
     //fetchFileContent(file.path);
+    loadUrl(file.path);
   };
 
   const fileBtn = document.createElement('button');
