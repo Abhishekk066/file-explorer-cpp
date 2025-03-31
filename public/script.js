@@ -203,7 +203,7 @@ async function fetchFileContent(filePath) {
 const modalDiv = document.createElement('div');
 
 function showFilePreview(content, filename) {
-  setEditor(content, filename);
+  //setEditor(content, filename);
 }
 
 function setEditor(content, filename) {
