@@ -13,7 +13,7 @@ const app = express();
 const folderPath = path.join(__dirname, 'cpp');
 
 const mainDomain = 'https://file-manager-cpp.onrender.com';
-const requestedDomain = 'https://compiler-cpp.onrender.com';
+const requestedDomain = 'https://compiler-cpp06.onrender.com';
 
 app.use(express.static('public'));
 app.use(express.json());
