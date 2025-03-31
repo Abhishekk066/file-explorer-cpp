@@ -12,8 +12,8 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const folderPath = path.join(__dirname, 'cpp');
 
-const mainDomain = 'https://file-manager-cpp.onrender.com';
-const requestedDomain = 'https://compiler-cpp06.onrender.com';
+const mainDomain = 'https://file-manager-cpp.vercel.app';
+const requestedDomain = 'https://compiler-cpp.vercel.app';
 
 app.use(express.static('public'));
 app.use(express.json());
