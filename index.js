@@ -12,7 +12,7 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const folderPath = path.join(__dirname, 'cpp');
 
-const requestedDomain = 'https://compiler-cpp06.onrender.com';
+const requestedDomain = 'https://compiler-cpp-production.up.railway.app';
 
 app.use(express.static('public'));
 app.use(express.json());
