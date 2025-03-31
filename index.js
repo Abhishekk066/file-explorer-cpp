@@ -12,12 +12,12 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const folderPath = path.join(__dirname, 'cpp');
 
-const mainDomain = 'https://file-manager-cpp.vercel.app';
-const requestedDomain = 'https://compiler-cpp.vercel.app';
+const mainDomain = 'https://file-manager-cpp06.onrender.com';
+const requestedDomain = 'https://compiler-cpp06.onrender.com';
 
 app.use(express.static('public'));
 app.use(express.json());
-app.use(cors({ origin: requestedDomain }));
+app.use(cors());
 
 const getFolderStructure = (dir, basePath = '') => {
   let structure = [];
@@ -227,4 +227,7 @@ app.get('/delete-info', (req, res) => {
   }
 });
 
-export default app;
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server is running on ${mainDomain}`);
+});
