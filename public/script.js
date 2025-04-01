@@ -1,5 +1,3 @@
-// Current path for breadcrumb navigation
-
 let currentPath = '';
 const fileList = document.getElementById('file-list');
 const loader = document.querySelector('.loader-parent');
@@ -9,7 +7,6 @@ const searchInput = document.getElementById('search-input');
 const searchButton = document.getElementById('search-button');
 const backButton = document.querySelector('.back');
 
-// File and folder type icons mapping
 const fileIcons = {
   cpp: 'fa-file-code',
   h: 'fa-file-code',
@@ -25,7 +22,6 @@ const fileIcons = {
   default: 'fa-file',
 };
 
-// Fetch and display folders/files
 async function fetchFolders() {
   try {
     showLoading(true, 'Loading files...');
@@ -45,7 +41,6 @@ async function fetchFolders() {
     if (data.folders.length === 0 && data.files.length === 0) {
       showEmptyState();
     } else {
-      // Display folders first
       data.folders.forEach((folder) => {
         const folderDiv = createFolderElement(folder);
         fileList.appendChild(folderDiv);
@@ -55,7 +50,6 @@ async function fetchFolders() {
         }
       });
 
-      // Then display files
       data.files.forEach((file) => {
         const fileDiv = createFileElement(file);
         fileList.appendChild(fileDiv);
@@ -70,7 +64,6 @@ async function fetchFolders() {
   }
 }
 
-// Create folder element
 function createFolderElement(folder) {
   const folderDiv = document.createElement('div');
   folderDiv.className = 'item folder';
@@ -101,12 +94,10 @@ function createFolderElement(folder) {
   return folderDiv;
 }
 
-// Create file element
 function createFileElement(file) {
   const fileDivMain = document.createElement('div');
   fileDivMain.className = 'item-main';
 
-  // Get file extension for icon
   const fileExtension = file.name.split('.').pop().toLowerCase();
   const iconClass = fileIcons[fileExtension] || fileIcons['default'];
 
@@ -139,24 +130,19 @@ function createFileElement(file) {
   return fileDivMain;
 }
 
-// Toggle folder open/closed
 function toggleFolder(folderDiv, folder, isRestoring = false) {
   const arrow = folderDiv.querySelector('.arrow i');
   const icon = folderDiv.querySelector('.icon i');
   let subFolderDiv = folderDiv.nextElementSibling;
 
   if (subFolderDiv && subFolderDiv.classList.contains('sub-folder')) {
-    // Folder is already open, toggle it
     const isHidden = subFolderDiv.classList.toggle('hidden');
     arrow.className = isHidden ? 'fas fa-chevron-right' : 'fas fa-chevron-down';
     icon.className = isHidden ? 'fas fa-folder' : 'fas fa-folder-open';
   } else {
-    // Create new subfolder element
     subFolderDiv = document.createElement('div');
     subFolderDiv.className = 'sub-folder';
     folderDiv.after(subFolderDiv);
-
-    // Open the folder visually
     arrow.className = 'fas fa-chevron-down';
     icon.className = 'fas fa-folder-open';
 
@@ -176,7 +162,6 @@ function toggleFolder(folderDiv, folder, isRestoring = false) {
     });
   }
 
-  // Store folder state
   if (!isRestoring) {
     const isOpen = !subFolderDiv.classList.contains('hidden');
     sessionStorage.setItem(folder.path, isOpen ? 'open' : 'closed');
@@ -246,12 +231,10 @@ function setEditor(content, filename) {
   }
 }
 
-// Theme toggle functionality
 const themeToggle = document.getElementById('theme-toggle');
 const themeIcon = themeToggle.querySelector('i');
 const prefersDarkScheme = window.matchMedia('(prefers-color-scheme: dark)');
 
-// Check for saved theme or use system preference
 const savedTheme = sessionStorage.getItem('theme');
 if (savedTheme) {
   document.documentElement.setAttribute('data-theme', savedTheme);
@@ -264,7 +247,6 @@ if (savedTheme) {
   updateThemeIcon('light');
 }
 
-// Listen for system theme change
 prefersDarkScheme.addEventListener('change', function (e) {
   const newTheme = e.matches ? 'dark' : 'light';
   document.documentElement.setAttribute('data-theme', newTheme);
@@ -289,13 +271,11 @@ themeToggle.addEventListener('click', function () {
   updateThemeIcon(newTheme);
 });
 
-// Loading state management
 function showLoading(show, message = 'Loading...') {
   loader.style.display = show ? 'block' : 'none';
   document.querySelector('.loader-container .title').textContent = message;
 }
 
-// Toast message display
 function showToast(message, type = 'info') {
   toast.className = `toast ${type} show`;
   toast.querySelector('span').textContent = message;
@@ -305,7 +285,6 @@ function showToast(message, type = 'info') {
   }, 3000);
 }
 
-// Open file in editor
 let loadCount = 0;
 async function loadUrl(filePath) {
   if (loadCount > 0) return;
@@ -334,7 +313,6 @@ async function loadUrl(filePath) {
   }
 }
 
-// Open URL in new tab or redirect if popup blocked
 function openInNewTab(url) {
   const newTab = window.open(url, '_blank');
   if (!newTab) {
@@ -354,7 +332,6 @@ window.addEventListener('scroll', () => {
   }
 });
 
-// Handle responsive behavior
 function handleResponsive() {
   const isMobile = window.innerWidth <= 480;
   const isSmallMobile = window.innerWidth <= 375;
