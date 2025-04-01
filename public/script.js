@@ -259,7 +259,18 @@ if (savedTheme) {
 } else if (prefersDarkScheme.matches) {
   document.documentElement.setAttribute('data-theme', 'dark');
   updateThemeIcon('dark');
+} else {
+  document.documentElement.setAttribute('data-theme', 'light');
+  updateThemeIcon('light');
 }
+
+// Listen for system theme change
+prefersDarkScheme.addEventListener('change', function (e) {
+  const newTheme = e.matches ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', newTheme);
+  localStorage.setItem('theme', newTheme);
+  updateThemeIcon(newTheme);
+});
 
 function updateThemeIcon(theme) {
   if (theme === 'dark') {
