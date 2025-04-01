@@ -34,7 +34,7 @@ const getFolderStructure = (dir, basePath = '') => {
           type: 'folder',
           name: item,
           path: relativePath,
-          children: getFolderStructure(fullPath, relativePath), // Recursive call for subfolders
+          children: getFolderStructure(fullPath, relativePath),
         });
       } else if (stats.isFile()) {
         structure.push({
@@ -56,12 +56,10 @@ const getFileIcon = (filename) => {
   const icons = {
     '.cpp': '📄',
     '.docx': '📝',
-    '.js': '📜',
   };
   return icons[ext] || '📄';
 };
 
-// API to get file structure
 app.post('/send-file', (req, res) => {
   const items = getFolderStructure(folderPath);
   const folders = items.filter((item) => item.type === 'folder');
@@ -69,13 +67,11 @@ app.post('/send-file', (req, res) => {
   res.json({ folders, files });
 });
 
-// Secure function to normalize and validate file paths
 const getSafePath = (requestedFile) => {
   const safePath = path.normalize(requestedFile).replace(/^(\.\.[\/\\])+/, '');
   return path.join(folderPath, safePath);
 };
 
-// API to get file content
 app.post('/files/*', async (req, res) => {
   const requestedFile = req.params[0];
   const filePath = getSafePath(requestedFile);
@@ -90,7 +86,6 @@ app.post('/files/*', async (req, res) => {
 
 let updatedCode = {};
 
-// API to handle file viewing and updating code state
 app.post('/files-view/*', async (req, res) => {
   const requestedFile = req.params[0];
   const filePath = getSafePath(requestedFile);
@@ -121,13 +116,9 @@ app.post('/get-url', async (req, res) => {
   }
 });
 
-// API to send stored code
-app.post('/send-code', (req, res) => {
-  sendCode(res);
-});
+app.post('/send-code', sendCode);
 
-// Function to send stored code data
-function sendCode(res) {
+function sendCode(req, res) {
   if (!updatedCode.content) {
     res.json({ message: false });
     return;
