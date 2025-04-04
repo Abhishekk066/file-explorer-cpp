@@ -28,9 +28,7 @@ async function fetchFolders() {
 
     const res = await fetch('/send-file', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
     });
 
     if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`);
@@ -44,10 +42,6 @@ async function fetchFolders() {
       data.folders.forEach((folder) => {
         const folderDiv = createFolderElement(folder);
         fileList.appendChild(folderDiv);
-
-        if (sessionStorage.getItem(folder.path) === 'open') {
-          toggleFolder(folderDiv, folder, true);
-        }
       });
 
       data.files.forEach((file) => {
@@ -60,7 +54,6 @@ async function fetchFolders() {
   } catch (error) {
     console.error('Error fetching folders:', error);
     showLoading(false);
-    //showToast('Failed to load files', 'error');
   }
 }
 
@@ -95,8 +88,8 @@ function createFolderElement(folder) {
 }
 
 function createFileElement(file) {
-  const fileDivMain = document.createElement('div');
-  fileDivMain.className = 'item-main';
+  const fileDiv = document.createElement('div');
+  fileDiv.className = 'item file';
 
   const fileExtension = file.name.split('.').pop().toLowerCase();
   const iconClass = fileIcons[fileExtension] || fileIcons['default'];
@@ -111,26 +104,34 @@ function createFileElement(file) {
   fileLink.textContent = file.name;
   fileLink.onclick = (e) => {
     e.preventDefault();
-    //fetchFileContent(file.path);
-    loadUrl(file.path);
-  };
-
-  const fileBtn = document.createElement('button');
-  fileBtn.className = 'action-btn';
-  fileBtn.innerHTML =
-    '<i class="fas fa-code"></i> <span class="button-text">Editor</span>';
-  fileBtn.onclick = (e) => {
-    e.stopPropagation();
-    loadUrl(file.path);
+    loadFileFromGitHub(file.path);
   };
 
   fileLink.insertAdjacentElement('afterbegin', fileIcon);
-  fileDivMain.appendChild(fileLink);
-  fileDivMain.appendChild(fileBtn);
-  return fileDivMain;
+  fileDiv.appendChild(fileLink);
+
+  return fileDiv;
 }
 
-function toggleFolder(folderDiv, folder, isRestoring = false) {
+async function loadFileFromGitHub(filePath) {
+  try {
+    showLoading(true, 'Opening file...');
+    const res = await fetch(`/file-content/${filePath}`, { method: 'POST' });
+
+    if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`);
+    const data = await res.json();
+
+    if (data.content) {
+      showFilePreview(atob(data.content), filePath);
+    }
+  } catch (error) {
+    console.error('Error loading file:', error);
+  } finally {
+    showLoading(false);
+  }
+}
+
+function toggleFolder(folderDiv, folder) {
   const arrow = folderDiv.querySelector('.arrow i');
   const icon = folderDiv.querySelector('.icon i');
   let subFolderDiv = folderDiv.nextElementSibling;
@@ -147,52 +148,13 @@ function toggleFolder(folderDiv, folder, isRestoring = false) {
     icon.className = 'fas fa-folder-open';
 
     folder.children.forEach((child) => {
-      const childElement =
-        child.type === 'folder'
-          ? createFolderElement(child)
-          : createFileElement(child);
+      const childElement = child.type === 'folder' ? createFolderElement(child) : createFileElement(child);
       subFolderDiv.appendChild(childElement);
-
-      if (
-        child.type === 'folder' &&
-        sessionStorage.getItem(child.path) === 'open'
-      ) {
-        toggleFolder(childElement, child, true);
-      }
     });
-  }
-
-  if (!isRestoring) {
-    const isOpen = !subFolderDiv.classList.contains('hidden');
-    sessionStorage.setItem(folder.path, isOpen ? 'open' : 'closed');
   }
 }
 
-// Fetch and display file content
-// async function fetchFileContent(filePath) {
-//   try {
-//     showLoading(true, 'Loading file content...');
-
-//     const res = await fetch(`/files/${filePath}`, { method: 'POST' });
-//     if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`);
-
-//     const data = await res.json();
-//     showLoading(false);
-//     showFilePreview(data.content, filePath);
-//   } catch (error) {
-//     console.error('Error fetching file:', error);
-//     showLoading(false);
-//     //showToast('Failed to fetch file content', 'error');
-//   }
-// }
-
-const modalDiv = document.createElement('div');
-
-// function showFilePreview(content, filename) {
-//   setEditor(content, filename);
-// }
-
-function setEditor(content, filename) {
+function showFilePreview(content, filename) {
   const textArea = document.createElement('textarea');
   modalDiv.innerHTML = '';
   modalDiv.className = 'modal';
@@ -200,75 +162,22 @@ function setEditor(content, filename) {
   modalDiv.appendChild(textArea);
   fileList.parentElement.appendChild(modalDiv);
   fileList.style.display = 'none';
-  searchButton.disabled = true;
-  searchInput.disabled = true;
-  searchButton.style.cursor = 'not-allowed';
-  searchInput.style.cursor = 'not-allowed';
-  const isMeddiumDevice = window.innerWidth <= 650;
-  backButton.style.display = isMeddiumDevice ? 'none' : 'block';
-  const currentTheme = sessionStorage.getItem('theme');
-  console.log(currentTheme === 'light');
 
-  try {
-    var editor = CodeMirror.fromTextArea(textArea, {
-      mode: 'text/x-c++src',
-      theme: currentTheme === 'light' ? 'eclipse' : 'monokai',
-      lineNumbers: true,
-      tabSize: 4,
-      indentUnit: 4,
-      readOnly: 'nocursor',
-    });
+  const editor = CodeMirror.fromTextArea(textArea, {
+    mode: 'text/x-c++src',
+    theme: 'monokai',
+    lineNumbers: true,
+  });
 
-    editor.refresh();
-
-    window.addEventListener('resize', () => {
-      editor.refresh();
-    });
-  } catch (e) {
-    if (e) {
-      console.error('not connected');
-    }
-  }
+  editor.refresh();
 }
 
 const themeToggle = document.getElementById('theme-toggle');
-const themeIcon = themeToggle.querySelector('i');
-const prefersDarkScheme = window.matchMedia('(prefers-color-scheme: dark)');
-
-const savedTheme = sessionStorage.getItem('theme');
-if (savedTheme) {
-  document.documentElement.setAttribute('data-theme', savedTheme);
-  updateThemeIcon(savedTheme);
-} else if (prefersDarkScheme.matches) {
-  document.documentElement.setAttribute('data-theme', 'dark');
-  updateThemeIcon('dark');
-} else {
-  document.documentElement.setAttribute('data-theme', 'light');
-  updateThemeIcon('light');
-}
-
-prefersDarkScheme.addEventListener('change', function (e) {
-  const newTheme = e.matches ? 'dark' : 'light';
+themeToggle.addEventListener('click', () => {
+  const currentTheme = document.documentElement.getAttribute('data-theme');
+  const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
   document.documentElement.setAttribute('data-theme', newTheme);
   sessionStorage.setItem('theme', newTheme);
-  updateThemeIcon(newTheme);
-});
-
-function updateThemeIcon(theme) {
-  if (theme === 'dark') {
-    themeIcon.className = 'fas fa-sun';
-  } else {
-    themeIcon.className = 'fas fa-moon';
-  }
-}
-
-themeToggle.addEventListener('click', function () {
-  let currentTheme = document.documentElement.getAttribute('data-theme');
-  let newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-
-  document.documentElement.setAttribute('data-theme', newTheme);
-  sessionStorage.setItem('theme', newTheme);
-  updateThemeIcon(newTheme);
 });
 
 function showLoading(show, message = 'Loading...') {
@@ -276,175 +185,15 @@ function showLoading(show, message = 'Loading...') {
   document.querySelector('.loader-container .title').textContent = message;
 }
 
-function showToast(message, type = 'info') {
-  toast.className = `toast ${type} show`;
-  toast.querySelector('span').textContent = message;
-
-  setTimeout(() => {
-    toast.className = 'toast';
-  }, 3000);
-}
-
-let loadCount = 0;
-async function loadUrl(filePath) {
-  if (loadCount > 0) return;
-  loadCount++;
-
-  try {
-    showLoading(true, 'Opening in editor, please wait...');
-    const res = await fetch(`/files-view/${filePath}`, {
-      method: 'POST',
-    });
-
-    if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`);
-    const data = await res.json();
-
-    if (data.message === 'ok') {
-      const geturl = await fetch(`/get-url`, { method: 'POST' });
-      if (!geturl.ok) throw new Error(`HTTP error! Status: ${geturl.status}`);
-      const dataUrl = await geturl.json();
-      openInNewTab(dataUrl.url);
-    }
-  } catch (err) {
-    console.error('Error loading file:', err);
-  } finally {
-    showLoading(false);
-    loadCount = 0;
-  }
-}
-
-function openInNewTab(url) {
-  const newTab = window.open(url, '_blank');
-  if (!newTab) {
-    console.log('Popup blocked, redirecting to:', url);
-    window.location.href = url;
-  }
-}
-
-const headerBar = document.querySelector('header');
-window.addEventListener('scroll', () => {
-  if (window.scrollY > 71) {
-    headerBar.style.background = 'var(--bg-primary)';
-    headerBar.style.padding = '10px 25px';
-  } else {
-    headerBar.style.background = 'var(--bg-secondary)';
-    headerBar.style.padding = '10px 25px 0';
-  }
-});
-
-function handleResponsive() {
-  const isMobile = window.innerWidth <= 480;
-  const isSmallMobile = window.innerWidth <= 375;
-  const isLargerScreen = window.innerWidth <= 1024;
-  const buttons = document.querySelectorAll('.action-btn');
-  const searchButtonR = document.getElementById('search-button');
-  const itemMain = document.querySelectorAll('.item-main');
-
-  searchButtonR.innerHTML = isMobile
-    ? '<i class="fas fa-search"></i>'
-    : '<i class="fas fa-search"></i> Search';
-
-  buttons.forEach((btn) => {
-    const textSpan = btn.querySelector('.button-text');
-    if (textSpan) {
-      textSpan.textContent = isMobile ? 'Editor' : 'Open in Editor';
-      textSpan.style.display = isSmallMobile ? 'none' : 'inline';
-    }
-
-    itemMain.forEach((element) => {
-      element.style.maxWidth = isLargerScreen ? '100%' : '65%';
-    });
-  });
+function showEmptyState(message = 'This folder is empty') {
+  const emptyFolder = document.querySelector('.empty-folder');
+  if (!emptyFolder) return;
+  emptyFolder.style.display = 'block';
+  emptyFolder.innerHTML = `<div class="empty-state"><i class="fas fa-folder-open"></i><p>${message}</p></div>`;
 }
 
 function init() {
   window.addEventListener('load', fetchFolders);
-  window.addEventListener('resize', handleResponsive);
-  setTimeout(handleResponsive, 300);
-  breadcrumb.addEventListener('click', closeAndDefault);
-  backButton.addEventListener('click', closeAndDefault);
-
-  searchInput?.addEventListener('input', debounce(performSearch, 300));
-  searchButton?.addEventListener('click', performSearch);
-
-  function closeAndDefault() {
-    showFolder();
-    fetchFolders();
-    fileList.style.display = 'block';
-    modalDiv.innerHTML = '';
-    searchButton.disabled = false;
-    searchInput.disabled = false;
-    searchButton.style.cursor = '';
-    searchInput.style.cursor = '';
-    backButton.style.display = 'none';
-  }
-
-  function performSearch() {
-    const query = searchInput?.value.trim().toLowerCase();
-    const allItems = fileList?.querySelectorAll('.item, .item-main');
-
-    if (!allItems) return;
-    let hasResults = false;
-
-    if (!query) {
-      allItems.forEach((item) => (item.style.display = 'flex'));
-      showFolder();
-      return;
-    }
-
-    allItems.forEach((item) => {
-      const textContent = item.textContent.trim().toLowerCase();
-      const matches = textContent.includes(query);
-      item.style.display = matches ? 'flex' : 'none';
-      if (matches) {
-        hasResults = true;
-        const button = item.querySelector('button');
-        if (button) button.style.display = 'none';
-      }
-    });
-
-    hasResults ? showFolder() : showEmptyState('No matching results found');
-  }
-
-  function debounce(func, delay) {
-    let timer;
-    return function (...args) {
-      clearTimeout(timer);
-      timer = setTimeout(() => func.apply(this, args), delay);
-    };
-  }
-
-  function showFolder() {
-    const emptyState = document.querySelector('.empty-folder');
-    if (emptyState) {
-      emptyState.style.display = 'none';
-      emptyState.innerHTML = '';
-    }
-  }
-
-  function showEmptyState(message = 'This folder is empty') {
-    const emptyFolder = document.querySelector('.empty-folder');
-    if (!emptyFolder) return;
-
-    emptyFolder.style.display = 'block';
-    emptyFolder.innerHTML = `
-    <div class="empty-state">
-      <i class="fas fa-folder-open"></i>
-      <p>${message}</p>
-    </div>
-  `;
-  }
-
-  info();
 }
 
-async function info() {
-  try {
-    await fetch('/info', { method: 'POST' });
-  } catch (error) {
-    console.error(error);
-  }
-}
-
-// Start the app
 document.addEventListener('DOMContentLoaded', init);
