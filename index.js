@@ -10,7 +10,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const fopderPath = "https://api.github.com/repos/Abhi0065/cpp_questions_solved/contents";
+const folderPath = "./files"; 
+const githubApiUrl = "https://api.github.com/repos/Abhi0065/cpp_questions_solved/contents";
 const requestedDomain = 'https://compiler-cpp-production.up.railway.app';
 
 app.use(express.static('public'));
@@ -67,13 +68,23 @@ app.post('/send-file', (req, res) => {
 });
 
 const getSafePath = (requestedFile) => {
-  const safePath = path.normalize(requestedFile).replace(/^(\.\.[\/\\])+/, '');
-  return path.join(folderPath, safePath);
+  const normalizedPath = path.normalize(requestedFile).replace(/^(\.\.[\/\\])+/, '');
+  const absolutePath = path.join(folderPath, normalizedPath);
+  
+  if (!absolutePath.startsWith(path.resolve(folderPath))) {
+    return null; 
+  }
+  
+  return absolutePath;
 };
 
 app.post('/files/*', async (req, res) => {
   const requestedFile = req.params[0];
   const filePath = getSafePath(requestedFile);
+
+  if (!filePath) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
 
   if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
     const content = fs.readFileSync(filePath, 'utf-8');
@@ -89,6 +100,10 @@ app.post('/files-view/*', async (req, res) => {
   const requestedFile = req.params[0];
   const filePath = getSafePath(requestedFile);
 
+  if (!filePath) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+
   if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
     const content = fs.readFileSync(filePath, 'utf-8');
     updatedCode = { content, file: requestedFile };
@@ -101,26 +116,28 @@ app.post('/files-view/*', async (req, res) => {
 app.post('/get-url', async (req, res) => {
   const fetchUrl = `${requestedDomain}/send-url`;
   try {
-    const response = await fetch(fetchUrl, { method: 'POST' });
+    const response = await fetch(fetchUrl, { 
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    
     if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
 
     const data = await response.json();
-    if (!data.message) return res.status(404).join({ message: false });
+    if (!data.message) return res.status(404).json({ message: false });
 
     res.status(200).json(data);
   } catch (error) {
-    res.status(404).json({ message: 'not found' });
     console.error('Fetch error:', error);
-    return { error: 'Failed to fetch code from external service' };
+    res.status(404).json({ message: 'not found' });
   }
 });
 
-app.post('/send-code', sendCode);
-
-function sendCode(req, res) {
+app.post('/send-code', (req, res) => {
   if (!updatedCode.content) {
-    res.json({ message: false });
-    return;
+    return res.json({ message: false });
   }
   res.json({
     message: true,
@@ -128,31 +145,66 @@ function sendCode(req, res) {
     filename: updatedCode.file,
     code: updatedCode.content,
   });
-}
+});
+
+const authenticate = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  
+  if (!authHeader || !process.env.ADMIN_KEY) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  
+  const token = authHeader.split(' ')[1];
+  if (token === process.env.ADMIN_KEY) {
+    next();
+  } else {
+    res.status(403).json({ error: 'Forbidden' });
+  }
+};
 
 app.post('/info', (req, res) => {
-  const filePath = 'info.txt';
+  const filePath = path.join(__dirname, 'info.txt');
   const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
   const userAgent = req.headers['user-agent'];
   const logData = `<span>IP:</span> ${ip}\n<span>User-Agent:</span> ${userAgent}\n<span>Date:</span> ${new Date().toLocaleString()}<hr>\n`;
 
-  if (!fs.existsSync(filePath)) {
-    fs.writeFileSync(filePath, logData);
-    return res.send('First IP logged!');
-  }
+  try {
+    if (!fs.existsSync(filePath)) {
+      fs.writeFileSync(filePath, logData);
+      return res.send('First IP logged!');
+    }
 
-  const fileContent = fs.readFileSync(filePath, 'utf8');
-  if (fileContent.includes(`<span>IP:</span> ${ip}`)) {
-    return res.send('IP already logged.');
-  }
+    const fileContent = fs.readFileSync(filePath, 'utf8');
+    if (fileContent.includes(`<span>IP:</span> ${ip}`)) {
+      return res.send('IP already logged.');
+    }
 
-  fs.appendFileSync(filePath, logData);
-  res.send('New IP logged.');
+    fs.appendFileSync(filePath, logData);
+    res.send('New IP logged.');
+  } catch (err) {
+    console.error('Error logging info:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
 });
 
-app.get('/info', (req, res) => {
+app.get('/info', authenticate, (req, res) => {
   try {
-    const readFile = fs.readFileSync('info.txt', 'utf8');
+    const filePath = path.join(__dirname, 'info.txt');
+    
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).send(
+        `<head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <style>
+          body { background: #000; color: lime; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        </style>
+        </head>
+        <body>File not found!</body>`
+      );
+    }
+    
+    const readFile = fs.readFileSync(filePath, 'utf8');
     res.send(
       `<head>
       <meta charset="UTF-8" />
@@ -167,9 +219,10 @@ app.get('/info', (req, res) => {
       <body>${readFile
         .split('\n')
         .map((e) => `<p>${e}</p>`)
-        .join('')}</body>`,
+        .join('')}</body>`
     );
   } catch (err) {
+    console.error('Error reading info file:', err);
     res.status(500).send(
       `<head>
       <meta charset="UTF-8" />
@@ -178,25 +231,25 @@ app.get('/info', (req, res) => {
         body { background: #000; color: lime; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
       </style>
       </head>
-      <body>File not found!</body>`,
+      <body>Server error: ${err.message}</body>`
     );
   }
 });
 
-app.get('/delete-info', (req, res) => {
+app.get('/delete-info', authenticate, (req, res) => {
   try {
-    const filePath = 'info.txt';
+    const filePath = path.join(__dirname, 'info.txt');
 
     if (!fs.existsSync(filePath)) {
       return res.status(404).send(
         `<head>
-      <meta charset="UTF-8" />
-      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      <style>
-        body { background: #000; color: lime; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-      </style>
-      </head>
-      <body>File not found!</body>`,
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <style>
+          body { background: #000; color: lime; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        </style>
+        </head>
+        <body>File not found!</body>`
       );
     }
 
@@ -209,12 +262,20 @@ app.get('/delete-info', (req, res) => {
         body { background: #000; color: lime; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
       </style>
       </head>
-      <body>info.txt deleted successfully!</body>`,
+      <body>info.txt deleted successfully!</body>`
     );
   } catch (err) {
+    console.error('Error deleting file:', err);
     res.status(500).send('Error deleting file: ' + err.message);
   }
 });
 
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({ error: 'Internal server error' });
+});
+
 const PORT = process.env.PORT || 3000;
-app.listen(PORT);
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
