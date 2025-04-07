@@ -27,20 +27,20 @@
   --bg-secondary: #0e0e0e;
   --color-primary: #ffffff;
   --color-secondary: #cccccc;
-  --accent-color: #00ff99;
+  --accent-color: #ffe600;
   --hover-color: #333333;
   --border-color: #444444;
   --shadow-color: rgb(85, 85, 85);
-  --button-bg: #00ff99;
+  --button-bg: #ffe600;
   --button-color: #313131;
-  --button-hover: #00ff33;
+  --button-hover: #ffc400;
   --editor-selection: rgba(255, 255, 255, 0.1);
   --color-line-number: #e6e6e6;
   --bg-input: #111111;
   --bg-search-con: #4b4b4b;
-  --color-breadcrumb: #00ff99;
-  --btn-search: #00ff99;
-  --btn-search-hover: #00ff33;
+  --color-breadcrumb: #ffe600;
+  --btn-search: #ffe600;
+  --btn-search-hover: #ffc400;
 }
 
 * {
