@@ -1,220 +1,218 @@
-
 import cors from 'cors';
 import 'dotenv/config';
+import EventEmitter from 'events';
 import express from 'express';
-import fs from 'fs';
+import fs from 'fs/promises';
+import NodeCache from 'node-cache';
 import fetch from 'node-fetch';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+EventEmitter.defaultMaxListeners = 60;
 
 const app = express();
-const folderPath = path.join(__dirname, 'cpp');
+const githubApiUrl =
+  'https://api.github.com/repos/apk02211/CPP_Solved_Questions_LAB/contents';
+const requestedDomain = 'http://127.0.0.1:10000';
 
-const requestedDomain = 'https://compiler-cpp-production.up.railway.app';
+const codeCache = new NodeCache({ stdTTL: 3600, checkperiod: 600 });
 
 app.use(express.static('public'));
 app.use(express.json());
 app.use(cors());
 
-const getFolderStructure = (dir, basePath = '') => {
-  let structure = [];
-  try {
-    let items = fs.readdirSync(dir);
-    items.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-
-    items.forEach((item) => {
-      const fullPath = path.join(dir, item);
-      const relativePath = path.join(basePath, item);
-      const stats = fs.statSync(fullPath);
-
-      if (stats.isDirectory()) {
-        structure.push({
-          type: 'folder',
-          name: item,
-          path: relativePath,
-          children: getFolderStructure(fullPath, relativePath),
-        });
-      } else if (stats.isFile()) {
-        structure.push({
-          type: 'file',
-          name: item,
-          path: relativePath,
-          icon: getFileIcon(item),
-        });
-      }
-    });
-  } catch (err) {
-    console.error('Error reading folder:', err);
-  }
-  return structure;
-};
-
 const getFileIcon = (filename) => {
-  const ext = path.extname(filename).toLowerCase();
+  const ext = filename.split('.').pop().toLowerCase();
   const icons = {
-    '.cpp': '📄',
-    '.docx': '📝',
+    cpp: '📄',
+    docx: '📝',
+    md: '📘',
+    txt: '📜',
   };
-  return icons[ext] || '📄';
+  return icons[ext] || '📂';
 };
 
-app.post('/send-file', (req, res) => {
-  const items = getFolderStructure(folderPath);
-  const folders = items.filter((item) => item.type === 'folder');
-  const files = items.filter((item) => item.type === 'file');
-  res.json({ folders, files });
+const fetchGitHubRepoContents = async (url) => {
+  try {
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `token ${process.env.GITHUB_TOKEN}`,
+        'User-Agent': 'Node.js',
+      },
+    });
+
+    if (!response.ok) throw new Error(`GitHub API error: ${response.status}`);
+
+    const data = await response.json();
+    data.sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { numeric: true }),
+    );
+
+    const items = [];
+
+    for (const item of data) {
+      const isFile = item.type === 'file';
+      if (isFile) {
+        const entry = {
+          type: item.type,
+          name: item.name,
+          path: item.path,
+          icon: getFileIcon(item.name),
+          html_url: item.html_url,
+          url: item.url,
+          download_url: item.download_url,
+        };
+        items.push(entry);
+      } else {
+        const entry = {
+          type: item.type,
+          name: item.name,
+          path: item.path,
+          icon: getFileIcon(item.name),
+          html_url: item.html_url,
+          url: item.url,
+        };
+        items.push(entry);
+      }
+    }
+
+    return items;
+  } catch (error) {
+    return [];
+  }
+};
+
+const fetchFileContent = async (url) => {
+  try {
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `token ${process.env.GITHUB_TOKEN}`,
+        'User-Agent': 'Node.js',
+      },
+    });
+
+    if (!response.ok)
+      throw new Error(`GitHub API error (content): ${response.status}`);
+
+    const data = await response.json();
+    return Buffer.from(data.content, 'base64').toString('utf-8');
+  } catch (error) {
+    return null;
+  }
+};
+
+app.post('/send-file', async (req, res) => {
+  const { folderName, url } = req.body;
+  let savedFile = codeCache.get(folderName);
+  if (!savedFile) {
+    savedFile = await fetchGitHubRepoContents(url);
+    codeCache.set(folderName, savedFile);
+  }
+  res.json(savedFile);
 });
 
-const getSafePath = (requestedFile) => {
-  const safePath = path.normalize(requestedFile).replace(/^(\.\.[\/\\])+/, '');
-  return path.join(folderPath, safePath);
-};
+app.post('/send-folder', async (req, res) => {
+  let savedFolder = codeCache.get('repo-folder');
+  if (!savedFolder) {
+    const items = await fetchGitHubRepoContents(githubApiUrl);
+    savedFolder = {
+      folders: items.filter((i) => i.type === 'dir'),
+      files: items.filter((i) => i.type === 'file'),
+    };
+    codeCache.set('repo-folder', savedFolder);
+  }
 
-app.post('/files/*', async (req, res) => {
-  const requestedFile = req.params[0];
-  const filePath = getSafePath(requestedFile);
+  res.json(savedFolder);
+});
 
-  if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
-    const content = fs.readFileSync(filePath, 'utf-8');
-    res.json({ content });
-  } else {
-    res.status(404).json({ error: 'File not found' });
+let updatedFiles = {};
+app.post('/content', async (req, res) => {
+  try {
+    const { fileName, url, download_url } = req.body;
+    let content = codeCache.get(fileName);
+    if (!content) {
+      content = await fetchFileContent(url);
+      codeCache.set(fileName, content);
+    }
+    const data = {
+      filename: fileName,
+      code: content,
+      download_url,
+    };
+    updatedFiles.data = data;
+    res.status(200).json({ message: 'success' });
+  } catch (error) {
+    res.status(404).json({ message: 'Something went wrong' });
   }
 });
 
-let updatedCode = {};
-
-app.post('/files-view/*', async (req, res) => {
-  const requestedFile = req.params[0];
-  const filePath = getSafePath(requestedFile);
-
-  if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
-    const content = fs.readFileSync(filePath, 'utf-8');
-    updatedCode = { content, file: requestedFile };
-    res.json({ message: 'ok' });
+app.post('/send-code', (req, res) => {
+  if (updatedFiles.data) {
+    res.json({
+      message: true,
+      type: 'editor',
+      ...updatedFiles.data,
+    });
   } else {
-    res.status(404).json({ error: 'File not found' });
+    res.json({ message: false });
   }
 });
 
 app.post('/get-url', async (req, res) => {
-  const fetchUrl = `${requestedDomain}/send-url`;
   try {
-    const response = await fetch(fetchUrl, { method: 'POST' });
-    if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+    const response = await fetch(`${requestedDomain}/send-url`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    if (!response.ok) throw new Error('Fetch failed');
 
     const data = await response.json();
-    if (!data.message) return res.status(404).join({ message: false });
-
-    res.status(200).json(data);
+    res.status(data.message ? 200 : 404).json(data);
   } catch (error) {
     res.status(404).json({ message: 'not found' });
-    console.error('Fetch error:', error);
-    return { error: 'Failed to fetch code from external service' };
   }
 });
 
-app.post('/send-code', sendCode);
+const authenticate = (req, res, next) => {
+  if (!process.env.ADMIN_KEY)
+    return res.status(401).json({ error: 'Unauthorized' });
 
-function sendCode(req, res) {
-  if (!updatedCode.content) {
-    res.json({ message: false });
-    return;
-  }
-  res.json({
-    message: true,
-    type: 'editor',
-    filename: updatedCode.file,
-    code: updatedCode.content,
-  });
-}
+  const token = req.headers.authorization?.split(' ')[1];
+  if (token === process.env.ADMIN_KEY) return next();
 
-app.post('/info', (req, res) => {
-  const filePath = 'info.txt';
-  const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-  const userAgent = req.headers['user-agent'];
-  const logData = `<span>IP:</span> ${ip}\n<span>User-Agent:</span> ${userAgent}\n<span>Date:</span> ${new Date().toLocaleString()}<hr>\n`;
+  res.status(403).json({ error: 'Forbidden' });
+};
 
-  if (!fs.existsSync(filePath)) {
-    fs.writeFileSync(filePath, logData);
-    return res.send('First IP logged!');
-  }
+app.post('/info', async (req, res) => {
+  const filePath = path.join(__dirname, 'info.txt');
+  const logData = `<span>IP:</span> ${req.ip}\n<span>User-Agent:</span> ${
+    req.headers['user-agent']
+  }\n<span>Date:</span> ${new Date().toLocaleString()}<hr>\n`;
 
-  const fileContent = fs.readFileSync(filePath, 'utf8');
-  if (fileContent.includes(`<span>IP:</span> ${ip}`)) {
-    return res.send('IP already logged.');
-  }
-
-  fs.appendFileSync(filePath, logData);
-  res.send('New IP logged.');
-});
-
-app.get('/info', (req, res) => {
   try {
-    const readFile = fs.readFileSync('info.txt', 'utf8');
+    const content = await fs.readFile(filePath, 'utf8').catch(() => '');
+    if (!content.includes(`<span>IP:</span> ${req.ip}`))
+      await fs.appendFile(filePath, logData);
+
     res.send(
-      `<head>
-      <meta charset="UTF-8" />
-      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      <style>
-        body { background: #000; color: lime; }
-        span { color: red; }
-        p { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0.6rem 0; padding: 0 5px; }
-        hr {border: 1px solid grey; border-bottom: none; }
-      </style>
-      </head>
-      <body>${readFile
-        .split('\n')
-        .map((e) => `<p>${e}</p>`)
-        .join('')}</body>`,
+      content.includes(`<span>IP:</span> ${req.ip}`)
+        ? 'IP already logged.'
+        : 'New IP logged.',
     );
   } catch (err) {
-    res.status(500).send(
-      `<head>
-      <meta charset="UTF-8" />
-      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      <style>
-        body { background: #000; color: lime; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-      </style>
-      </head>
-      <body>File not found!</body>`,
-    );
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
-app.get('/delete-info', (req, res) => {
+app.get('/delete-info', authenticate, async (req, res) => {
+  const filePath = path.join(__dirname, 'info.txt');
   try {
-    const filePath = 'info.txt';
-
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).send(
-        `<head>
-      <meta charset="UTF-8" />
-      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      <style>
-        body { background: #000; color: lime; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-      </style>
-      </head>
-      <body>File not found!</body>`,
-      );
-    }
-
-    fs.unlinkSync(filePath);
-    res.send(
-      `<head>
-      <meta charset="UTF-8" />
-      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      <style>
-        body { background: #000; color: lime; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-      </style>
-      </head>
-      <body>info.txt deleted successfully!</body>`,
-    );
-  } catch (err) {
-    res.status(500).send('Error deleting file: ' + err.message);
+    await fs.unlink(filePath);
+    res.send('info.txt deleted successfully!');
+  } catch (error) {
+    res.status(404).send('File not found!');
   }
 });
 
