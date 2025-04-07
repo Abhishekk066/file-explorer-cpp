@@ -1,661 +1,471 @@
-async function init() {
-  let socket = new WebSocket(`wss://${window.location.host}`);
-  const editorContainer = document.getElementById('editorContainer');
-  const outputContainer = document.getElementById('outputContainer');
-  const toggleViewBtn = document.getElementById('toggle-view');
-  const fileNameEditor = document.querySelector('.truncate');
-  const loader = document.querySelector('.loader-parent');
-  const outputBtn = document.querySelector('.output-btn');
-  const fullEditor = document.querySelector('.file-name');
-  let editorView = 0;
-  let editor;
-  const pathName = window.location.pathname;
+let currentPath = '';
+const fileList = document.getElementById('file-list');
+const loader = document.querySelector('.loader-parent');
+const toast = document.getElementById('toast');
+const breadcrumb = document.getElementById('breadcrumb');
+const searchInput = document.getElementById('search-input');
+const searchButton = document.getElementById('search-button');
+const backButton = document.querySelector('.back');
 
+const fileIcons = {
+  cpp: 'fa-file-code',
+  h: 'fa-file-code',
+  c: 'fa-file-code',
+  hpp: 'fa-file-code',
+  txt: 'fa-file-alt',
+  md: 'fa-file-alt',
+  json: 'fa-file-code',
+  xml: 'fa-file-code',
+  jpg: 'fa-file-image',
+  png: 'fa-file-image',
+  pdf: 'fa-file-pdf',
+  default: 'fa-file',
+};
+
+async function fetchFolders() {
   try {
-    const res = await fetch(`/code${pathName}`, { method: 'POST' });
-    if (!res.ok) {
-      (async () => {
-        const redirect = await fetch('/get-theme', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            themeMode: sessionStorage.getItem('themeMode') || null,
-          }),
-        });
+    showLoading(true, 'Loading...');
 
-        if (!redirect.ok) {
-          throw new Error('Something went wrong');
-        }
+    const res = await fetch('/send-folder', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
 
-        const getTheme = await redirect.json();
-        if (getTheme.themeMode === 'light') {
-          window.location.replace('/redirect-day');
-        } else {
-          window.location.replace('/redirect-night');
-        }
-      })();
-      return;
-    }
+    if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`);
 
     const data = await res.json();
+    fileList.innerHTML = '';
 
-    document.getElementById('code').textContent = data.code;
+    if (data.folders.length === 0 && data.files.length === 0) {
+      showEmptyState();
+    } else {
+      data.folders.forEach((folder) => {
+        const folderDiv = createFolderElement(folder);
+        fileList.appendChild(folderDiv);
 
-    const fileName = data.filename.toString().split('/').pop();
-    fileNameEditor.textContent = fileName;
-    document.querySelector('title').textContent = fileName;
-  } catch (e) {
-    console.error(e);
+        if (sessionStorage.getItem(folder.path) === 'open') {
+          toggleFolder(folderDiv, folder, true);
+        }
+      });
+
+      data.files.forEach((file) => {
+        const fileDiv = createFileElement(file);
+        fileList.appendChild(fileDiv);
+      });
+    }
+
+    showLoading(false);
+  } catch (error) {
+    showLoading(false);
+    console.error('Failed to load folders:', error);
+    //showToast('Failed to load files', 'error');
   }
+}
 
-  editor = CodeMirror.fromTextArea(document.getElementById('code'), {
-    mode: 'text/x-c++src',
-    theme: 'dracula',
-    lineNumbers: true,
-    tabSize: 4,
-    indentUnit: 4,
-    smartIndent: true,
-    autoCloseBrackets: true,
-    matchBrackets: true,
-    styleActiveLine: true,
-    foldGutter: true,
-    gutters: [
-      'CodeMirror-linenumbers',
-      'CodeMirror-foldgutter',
-      'CodeMirror-lint-markers',
-    ],
-    lint: true,
-    extraKeys: {
-      'Ctrl-/': 'toggleComment',
-      'Ctrl-Space': 'autocomplete',
-    },
+function createFolderElement(folder) {
+  const folderDiv = document.createElement('div');
+  folderDiv.className = 'item folder';
+  folderDiv.dataset.path = folder.path;
+
+  const arrow = document.createElement('span');
+  arrow.className = 'arrow';
+  arrow.innerHTML = '<i class="fas fa-chevron-right"></i>';
+  arrow.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleFolder(folderDiv, folder);
   });
 
-  function sendInput(inputField) {
-    let input = inputField.value;
-    socket.send(JSON.stringify({ type: 'input', input: input }));
-    inputField.parentNode.removeChild(inputField);
-    document.getElementById(
-      'output',
-    ).innerHTML += `<span class="output-info">${input}</span><br>`;
+  const icon = document.createElement('span');
+  icon.className = 'icon';
+  icon.innerHTML = '<i class="fas fa-folder"></i>';
+
+  const name = document.createElement('span');
+  name.className = 'name';
+  name.textContent = folder.name;
+
+  folderDiv.appendChild(arrow);
+  folderDiv.appendChild(icon);
+  folderDiv.appendChild(name);
+
+  folderDiv.addEventListener('click', () => toggleFolder(folderDiv, folder));
+
+  return folderDiv;
+}
+
+function createFileElement(file) {
+  const fileDivMain = document.createElement('div');
+  fileDivMain.className = 'item-main';
+
+  const fileExtension = file.name.split('.').pop().toLowerCase();
+  const iconClass = fileIcons[fileExtension] || fileIcons['default'];
+
+  const fileIcon = document.createElement('span');
+  fileIcon.className = 'icon';
+  fileIcon.innerHTML = `<i class="fas ${iconClass}"></i>`;
+
+  const fileLink = document.createElement('a');
+  fileLink.href = '#';
+  fileLink.className = 'item';
+  fileLink.textContent = file.name;
+  fileLink.onclick = async (e) => {
+    e.preventDefault();
+    const response = await fetch('/content', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url: file.url,
+        download_url: file.download_url,
+        fileName: file.name,
+      }),
+    });
+
+    if (response.ok) {
+      loadUrl();
+    }
+  };
+
+  const fileBtn = document.createElement('button');
+  fileBtn.className = 'action-btn';
+  fileBtn.innerHTML =
+    '<i class="fas fa-code"></i> <span class="button-text">Editor</span>';
+  fileBtn.onclick = async (e) => {
+    e.stopPropagation();
+    const response = await fetch('/content', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url: file.url,
+        download_url: file.download_url,
+        fileName: file.name,
+      }),
+    });
+
+    if (response.ok) {
+      loadUrl();
+    }
+  };
+
+  fileLink.insertAdjacentElement('afterbegin', fileIcon);
+  fileDivMain.appendChild(fileLink);
+  fileDivMain.appendChild(fileBtn);
+  return fileDivMain;
+}
+
+async function toggleFolder(folderDiv, folder, isRestoring = false) {
+  try {
+    const arrow = folderDiv.querySelector('.arrow i');
+    const icon = folderDiv.querySelector('.icon i');
+    let subFolderDiv = folderDiv.nextElementSibling;
+
+    if (subFolderDiv && subFolderDiv.classList.contains('sub-folder')) {
+      const isHidden = subFolderDiv.classList.toggle('hidden');
+      arrow.className = isHidden
+        ? 'fas fa-chevron-right'
+        : 'fas fa-chevron-down';
+      icon.className = isHidden ? 'fas fa-folder' : 'fas fa-folder-open';
+    } else {
+      showLoading(true, 'Loading files...');
+
+      const response = await fetch('/send-file', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folderName: folder.name, url: folder.url }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      subFolderDiv = document.createElement('div');
+      subFolderDiv.className = 'sub-folder';
+      folderDiv.after(subFolderDiv);
+      arrow.className = 'fas fa-chevron-down';
+      icon.className = 'fas fa-folder-open';
+
+      for (const child of data) {
+        const childElement =
+          child.type === 'folder'
+            ? createFolderElement(child)
+            : createFileElement(child);
+        subFolderDiv.appendChild(childElement);
+
+        if (
+          child.type === 'folder' &&
+          sessionStorage.getItem(child.path) === 'open'
+        ) {
+          await toggleFolder(childElement, child, true);
+        }
+      }
+
+      showLoading(false);
+    }
+
+    if (!isRestoring) {
+      const isOpen = !subFolderDiv.classList.contains('hidden');
+      sessionStorage.setItem(folder.path, isOpen ? 'open' : 'closed');
+    }
+  } catch (error) {
+    console.error('Error in toggleFolder:', error);
+    showLoading(false);
+  }
+}
+
+const themeToggle = document.getElementById('theme-toggle');
+const themeIcon = themeToggle?.querySelector('i');
+const prefersDarkScheme = window.matchMedia('(prefers-color-scheme: dark)');
+
+if (themeToggle && themeIcon) {
+  const savedTheme = sessionStorage.getItem('theme');
+  if (savedTheme) {
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    updateThemeIcon(savedTheme);
+  } else if (prefersDarkScheme.matches) {
+    document.documentElement.setAttribute('data-theme', 'dark');
+    updateThemeIcon('dark');
+  } else {
+    document.documentElement.setAttribute('data-theme', 'light');
+    updateThemeIcon('light');
   }
 
-  let executionTime = 0;
-  function runCode() {
-    document.getElementById('output').innerHTML =
-      'Compiling...<div class="loading-indicator ml-2"></div>';
-    document.getElementById('execution-time').textContent = '0.00s';
-    const startTime = performance.now();
+  prefersDarkScheme.addEventListener('change', function (e) {
+    const newTheme = e.matches ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', newTheme);
+    sessionStorage.setItem('theme', newTheme);
+    updateThemeIcon(newTheme);
+  });
 
-    socket.send(JSON.stringify({ type: 'code', code: editor.getValue() }));
+  themeToggle.addEventListener('click', function () {
+    let currentTheme = document.documentElement.getAttribute('data-theme');
+    let newTheme = currentTheme === 'dark' ? 'light' : 'dark';
 
-    const timer = setInterval(() => {
-      const elapsed = ((performance.now() - startTime) / 1000).toFixed(2);
-      document.getElementById('execution-time').textContent = elapsed + 's';
-      executionTime = elapsed + 's';
-    }, 100);
+    document.documentElement.setAttribute('data-theme', newTheme);
+    sessionStorage.setItem('theme', newTheme);
+    updateThemeIcon(newTheme);
+  });
+}
 
-    window.currentTimer = timer;
+function updateThemeIcon(theme) {
+  if (!themeIcon) return;
 
-    if (window.innerWidth <= 768) {
-      editorContainer.style.display = 'none';
-      outputContainer.style.display = 'block';
-      outputContainer.classList.add('output-fullscreen');
-      toggleViewBtn.innerHTML =
-        '<i class="fas fa-terminal"></i><span class="hidden-mobile">Switch</span>';
-      editorContainer.style.width = '0%';
-      outputContainer.style.width = '100%';
-      outputBtn.style.background = 'darkviolet';
+  if (theme === 'dark') {
+    themeIcon.className = 'fas fa-sun';
+  } else {
+    themeIcon.className = 'fas fa-moon';
+  }
+}
+
+function showLoading(show, message = 'Loading...') {
+  if (!loader) return;
+
+  loader.style.display = show ? 'block' : 'none';
+  const loaderTitle = document.querySelector('.loader-container .title');
+  if (loaderTitle) {
+    loaderTitle.textContent = message;
+  }
+}
+
+function showToast(message, type = 'info') {
+  if (!toast) return;
+
+  toast.className = `toast ${type} show`;
+  const toastSpan = toast.querySelector('span');
+  if (toastSpan) {
+    toastSpan.textContent = message;
+  }
+
+  setTimeout(() => {
+    toast.className = 'toast';
+  }, 3000);
+}
+
+let loadCount = 0;
+async function loadUrl() {
+  if (loadCount > 0) return;
+  loadCount++;
+  try {
+    showLoading(true, 'Opening in editor, please wait...');
+    const geturl = await fetch(`/get-url`, { method: 'POST' });
+    if (!geturl.ok) throw new Error(`HTTP error! Status: ${geturl.status}`);
+    const dataUrl = await geturl.json();
+    if (dataUrl && dataUrl.url) {
+      openInNewTab(dataUrl.url);
+    } else {
+      throw new Error('Invalid URL data received');
+    }
+  } catch (err) {
+    console.error('Error loading file:', err);
+    showToast('Failed to open file in editor', 'error');
+  } finally {
+    showLoading(false);
+    loadCount = 0;
+  }
+}
+
+function openInNewTab(url) {
+  const newTab = window.open(url, '_blank');
+  if (!newTab) {
+    window.location.href = url;
+  }
+}
+
+const headerBar = document.querySelector('header');
+if (headerBar) {
+  window.addEventListener('scroll', () => {
+    if (window.scrollY > 71) {
+      headerBar.style.background = 'var(--bg-primary)';
+      headerBar.style.padding = '10px 25px';
+    } else {
+      headerBar.style.background = 'var(--bg-secondary)';
+      headerBar.style.padding = '10px 25px 0';
+    }
+  });
+}
+
+function handleResponsive() {
+  const isMobile = window.innerWidth <= 480;
+  const isSmallMobile = window.innerWidth <= 375;
+  const isLargerScreen = window.innerWidth <= 1024;
+  const buttons = document.querySelectorAll('.action-btn');
+  const searchButtonR = document.getElementById('search-button');
+  const itemMain = document.querySelectorAll('.item-main');
+
+  if (searchButtonR) {
+    searchButtonR.innerHTML = isMobile
+      ? '<i class="fas fa-search"></i>'
+      : '<i class="fas fa-search"></i> Search';
+  }
+
+  buttons.forEach((btn) => {
+    const textSpan = btn.querySelector('.button-text');
+    if (textSpan) {
+      textSpan.textContent = isMobile ? 'Editor' : 'Open in Editor';
+      textSpan.style.display = isSmallMobile ? 'none' : 'inline';
+    }
+  });
+
+  itemMain.forEach((element) => {
+    element.style.maxWidth = isLargerScreen ? '100%' : '65%';
+  });
+}
+
+function init() {
+  window.addEventListener('load', fetchFolders);
+  window.addEventListener('resize', handleResponsive);
+  setTimeout(handleResponsive, 300);
+
+  if (breadcrumb) {
+    breadcrumb.addEventListener('click', closeAndDefault);
+  }
+
+  if (backButton) {
+    backButton.addEventListener('click', closeAndDefault);
+  }
+
+  if (searchInput) {
+    searchInput.addEventListener('input', debounce(performSearch, 300));
+  }
+
+  if (searchButton) {
+    searchButton.addEventListener('click', performSearch);
+  }
+
+  function closeAndDefault() {
+    showFolder();
+    fetchFolders();
+    if (fileList) fileList.style.display = 'block';
+    if (modalDiv) modalDiv.innerHTML = '';
+
+    if (searchButton) {
+      searchButton.disabled = false;
+      searchButton.style.cursor = '';
+    }
+
+    if (searchInput) {
+      searchInput.disabled = false;
+      searchInput.style.cursor = '';
+    }
+
+    if (backButton) {
+      backButton.style.display = 'none';
+    }
+  }
+
+  function performSearch() {
+    const query = searchInput?.value.trim().toLowerCase();
+    const allItems = fileList?.querySelectorAll('.item, .item-main');
+
+    if (!allItems || allItems.length === 0) return;
+    let hasResults = false;
+
+    if (!query) {
+      allItems.forEach((item) => (item.style.display = 'flex'));
+      showFolder();
       return;
     }
 
-    originalWidthHeight();
-  }
-
-  const runCodeElem = document.querySelectorAll('.run-code');
-  runCodeElem.forEach((e) => {
-    e.addEventListener('click', runCode);
-  });
-
-  function showFullEditor() {
-    if (window.innerWidth > 768) return;
-
-    editorView = 1;
-    outputBtn.style.background = '';
-    editorContainer.style.display = 'block';
-    editorContainer.classList.add('editor-fullscreen');
-    outputContainer.style.display = 'none';
-    toggleViewBtn.innerHTML =
-      '<i class="fas fa-code"></i><span class="hidden-mobile">Switch</span>';
-    editorContainer.style.width = '100%';
-    outputContainer.style.width = '0%';
-    dragbarHorizontal.style.display = 'none';
-  }
-
-  function showOutput() {
-    if (window.innerWidth > 768) return;
-    editorView = 2;
-    outputBtn.style.background = 'darkviolet';
-    fullEditor.style.background = '';
-    editorContainer.style.display = 'none';
-    outputContainer.style.display = 'block';
-    outputContainer.classList.add('output-fullscreen');
-    toggleViewBtn.innerHTML =
-      '<i class="fas fa-terminal"></i><span class="hidden-mobile">Switch</span>';
-    editorContainer.style.width = '0%';
-    outputContainer.style.width = '100%';
-    dragbarHorizontal.style.display = 'none';
-  }
-
-  fullEditor.addEventListener('click', showFullEditor);
-  outputBtn.addEventListener('click', showOutput);
-
-  function copyCode() {
-    navigator.clipboard
-      .writeText(editor.getValue())
-      .then(() => {
-        const toast = document.createElement('div');
-        toast.className = 'toast';
-        toast.innerHTML =
-          '<i class="fas fa-check-circle"></i> Code copied to clipboard!';
-        document.body.appendChild(toast);
-
-        setTimeout(() => {
-          toast.remove();
-        }, 3000);
-      })
-      .catch((err) => {
-        console.error('Error copying code: ', err);
-
-        const toast = document.createElement('div');
-        toast.className = 'toast';
-        toast.style.borderLeft = '4px solid var(--error-text)';
-        toast.innerHTML =
-          '<i class="fas fa-times-circle" style="color: var(--error-text)"></i> Failed to copy code';
-        document.body.appendChild(toast);
-
-        setTimeout(() => {
-          toast.remove();
-        }, 3000);
-      });
-  }
-
-  const copyCodeElem = document.querySelectorAll('.copy-code');
-  copyCodeElem.forEach((e) => {
-    e.addEventListener('click', copyCode);
-  });
-
-  async function generateCode() {
-    const code = editor.getValue();
-    const filename = 'main.cpp';
-
-    try {
-      showLoading(true, 'Generating...');
-      const res = await fetch('/generate-url', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code, filename }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error('Failed to generate URL');
-      showLoading(false);
-      return data.url;
-    } catch (err) {
-      showLoading(false);
-      console.error(err);
-      return null;
-    }
-  }
-
-  async function generateQrCode() {
-    try {
-      const res = await fetch('/generate-qrcode', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: await generateCode() }),
-      });
-      if (!res.ok) throw new Error('Failed to generate URL');
-      const data = await res.text();
-      return data;
-    } catch (err) {
-      console.error(err);
-      return null;
-    }
-  }
-
-  async function copyShareCode() {
-    const shareUrl = await generateCode();
-    try {
-      if (!shareUrl) throw new Error('Could not generate URL');
-
-      navigator.clipboard
-        .writeText(shareUrl)
-        .then(() => {
-          const toast = document.createElement('div');
-          toast.className = 'toast';
-          toast.innerHTML =
-            '<i class="fas fa-check-circle"></i> Share url copied to clipboard!';
-          document.body.appendChild(toast);
-
-          setTimeout(() => {
-            toast.remove();
-          }, 3000);
-        })
-        .catch((err) => {
-          console.error('Error copying code: ', err);
-
-          const toast = document.createElement('div');
-          toast.className = 'toast';
-          toast.style.borderLeft = '4px solid var(--error-text)';
-          toast.innerHTML =
-            '<i class="fas fa-times-circle" style="color: var(--error-text)"></i> Failed to copy code';
-          document.body.appendChild(toast);
-
-          setTimeout(() => {
-            toast.remove();
-          }, 3000);
-        });
-    } catch (err) {
-      console.error('Error generating URL:', err);
-
-      const toast = document.createElement('div');
-      toast.className = 'toast';
-      toast.style.borderLeft = '4px solid var(--error-text)';
-      toast.innerHTML =
-        '<i class="fas fa-times-circle" style="color: var(--error-text)"></i> Failed to generate URL';
-      document.body.appendChild(toast);
-
-      setTimeout(() => {
-        toast.remove();
-      }, 3000);
-    }
-  }
-
-  const openModalShare = document.querySelectorAll('.open-model');
-  openModalShare.forEach((e) => {
-    e.addEventListener('click', openShareModel);
-  });
-
-  window.addEventListener('resize', () => {
-    editor.refresh();
-  });
-
-  socket.onmessage = function (event) {
-    let data = JSON.parse(event.data);
-    let outputBox = document.getElementById('output');
-
-    if (data.type === 'compiled') {
-      outputBox.innerHTML =
-        'Compiling...<div class="loading-indicator ml-2"></div>';
-    } else if (data.type === 'output') {
-      outputBox.innerHTML += data.message;
-    } else if (data.type === 'error') {
-      outputBox.innerHTML = `<span class="output-error">${data.message}</span>`;
-    } else if (data.type === 'running') {
-      outputBox.innerHTML = '';
-    } else if (data.type === 'input-request') {
-      let inputField = document.createElement('input');
-      inputField.id = 'userInput';
-      inputField.type = 'text';
-      inputField.className = 'w-full';
-      inputField.onkeypress = function (event) {
-        if (event.key === 'Enter') {
-          sendInput(inputField);
-        }
-      };
-      outputBox.appendChild(inputField);
-      inputField.focus();
-    } else if (data.type === 'finished') {
-      if (window.currentTimer) {
-        clearInterval(window.currentTimer);
-      }
-      outputBox.innerHTML += `<br><br><span class="output-success">=== Compiled in ${executionTime} ===</span>
-<span class="output-success">=== Code Execution Successful ===</span>`;
-    }
-  };
-
-  socket.onerror = function (error) {
-    console.error('WebSocket Error:', error);
-    document.getElementById('output').innerHTML =
-      '<span class="output-error">Connection error! Please check if the server is running.</span>';
-    clearInterval(window.currentTimer);
-  };
-
-  socket.onclose = function (event) {
-    document.getElementById('output').innerHTML =
-      '<span class="output-warning">Connection closed. Please refresh the page to reconnect.</span>';
-
-    document.querySelector('.status-item:nth-child(2) span').textContent =
-      'Disconnected';
-    document.querySelector('.status-item:nth-child(2) span').style.color =
-      'var(--error-text)';
-    clearInterval(window.currentTimer);
-  };
-
-  toggleViewBtn.addEventListener('click', () => {
-    editorView++;
-    if (editorView === 1) {
-      editorContainer.style.display = 'block';
-      editorContainer.classList.add('editor-fullscreen');
-      outputContainer.style.display = 'none';
-      toggleViewBtn.innerHTML =
-        '<i class="fas fa-code"></i><span class="hidden-mobile">Switch</span>';
-      editorContainer.style.width = '100%';
-      outputContainer.style.width = '0%';
-      dragbarHorizontal.style.display = 'none';
-      outputBtn.style.background = '';
-    } else if (editorView === 2) {
-      outputBtn.style.background = 'darkviolet';
-      editorContainer.style.display = 'none';
-      outputContainer.style.display = 'block';
-      outputContainer.classList.add('output-fullscreen');
-      toggleViewBtn.innerHTML =
-        '<i class="fas fa-terminal"></i><span class="hidden-mobile">Switch</span>';
-      editorContainer.style.width = '0%';
-      outputContainer.style.width = '100%';
-    } else {
-      editorContainer.style.height = '52%';
-      outputContainer.style.height = '48%';
-      editorContainer.style.display = 'block';
-      outputContainer.style.display = 'block';
-      editorContainer.classList.remove('editor-fullscreen');
-      outputContainer.classList.remove('output-fullscreen');
-      toggleViewBtn.innerHTML =
-        '<i class="fas fa-exchange-alt"></i><span class="hidden-mobile">Switch</span>';
-      dragbarHorizontal.style.display = 'block';
-      outputBtn.style.background = '';
-      editorView = 0;
-    }
-  });
-
-  const dragbarVertical = document.getElementById('dragbar');
-  const dragbarHorizontal = document.getElementById('dragbar-horizontal');
-  const mainContainer = document.querySelector('.main-container');
-  let isResizing = false;
-  let resizeType = '';
-  let initialX, initialY, initialEditorWidth, initialEditorHeight;
-
-  function handleResize(e) {
-    if (!isResizing) return;
-
-    requestAnimationFrame(() => {
-      const containerWidth = mainContainer.clientWidth;
-      const containerHeight = mainContainer.clientHeight;
-
-      if (resizeType === 'horizontal') {
-        const deltaX = e.clientX - initialX;
-        let newEditorWidth =
-          ((initialEditorWidth + deltaX) / containerWidth) * 100;
-
-        if (newEditorWidth > 20 && newEditorWidth < 80) {
-          editorContainer.style.width = `${newEditorWidth}%`;
-          outputContainer.style.width = `${100 - newEditorWidth}%`;
-        }
-      } else if (resizeType === 'vertical') {
-        const deltaY = e.clientY - initialY;
-        let newEditorHeight =
-          ((initialEditorHeight + deltaY) / containerHeight) * 100;
-
-        if (newEditorHeight > 20 && newEditorHeight < 80) {
-          editorContainer.style.height = `${newEditorHeight}%`;
-          outputContainer.style.height = `${100 - newEditorHeight}%`;
-        }
+    allItems.forEach((item) => {
+      const textContent = item.textContent.trim().toLowerCase();
+      const matches = textContent.includes(query);
+      item.style.display = matches ? 'flex' : 'none';
+      if (matches) {
+        hasResults = true;
+        const button = item.querySelector('button');
+        if (button) button.style.display = 'none';
       }
     });
+
+    hasResults ? showFolder() : showEmptyState('No matching results found');
   }
 
-  dragbarVertical.addEventListener('mousedown', (e) => {
-    isResizing = true;
-    resizeType = 'horizontal';
-    initialX = e.clientX;
-    initialEditorWidth = editorContainer.getBoundingClientRect().width;
-    document.body.style.cursor = 'ew-resize';
-    document.body.style.userSelect = 'none';
-  });
-
-  dragbarHorizontal.addEventListener('mousedown', (e) => {
-    isResizing = true;
-    resizeType = 'vertical';
-    initialY = e.clientY;
-    initialEditorHeight = editorContainer.getBoundingClientRect().height;
-    document.body.style.cursor = 'ns-resize';
-    document.body.style.userSelect = 'none';
-  });
-
-  document.addEventListener('mousemove', handleResize);
-  document.addEventListener('mouseup', () => {
-    if (isResizing) {
-      isResizing = false;
-      resizeType = '';
-      document.body.style.cursor = 'default';
-      document.body.style.userSelect = 'auto';
-    }
-  });
-
-  const lightThemes = [
-    'default',
-    'base16-light',
-    'eclipse',
-    'mdn-like',
-    'neat',
-    'paraiso-light',
-  ];
-
-  const darkThemes = [
-    'dracula',
-    'monokai',
-    'material',
-    'ayu-dark',
-    'gruvbox-dark',
-    'panda-syntax',
-  ];
-
-  const themeSelector = document.querySelector('select');
-  const themeToggle = document.querySelector('.mode');
-  const savedMode = sessionStorage.getItem('themeMode');
-  const savedTheme = sessionStorage.getItem('selectedTheme');
-  const prefersDarkScheme = window.matchMedia('(prefers-color-scheme: dark)');
-
-  let themeFlag = savedMode ? savedMode === 'dark' : prefersDarkScheme.matches;
-
-  prefersDarkScheme.addEventListener('change', (e) => {
-    if (!savedMode) {
-      themeFlag = e.matches;
-      applyThemeSettings();
-    }
-  });
-
-  function updateThemeOptions(themes) {
-    themeSelector.innerHTML = '';
-    themes.forEach((theme) => {
-      const option = document.createElement('option');
-      option.value = theme;
-      option.textContent = theme;
-      themeSelector.appendChild(option);
-    });
+  function debounce(func, delay) {
+    let timer;
+    return function (...args) {
+      clearTimeout(timer);
+      timer = setTimeout(() => func.apply(this, args), delay);
+    };
   }
 
-  function loadTheme(theme) {
-    if (theme === 'default') {
-      editor.setOption('theme', 'default');
-    } else {
-      let link = document.getElementById('theme-stylesheet');
-      if (!link) {
-        link = document.createElement('link');
-        link.rel = 'stylesheet';
-        link.id = 'theme-stylesheet';
-        document.head.appendChild(link);
-      }
-      link.href = `codemirror/theme/${theme.replace(/\s+/g, '-')}.css`;
-      editor.setOption('theme', theme);
-    }
-    sessionStorage.setItem('selectedTheme', theme);
-  }
-
-  function toggleTheme() {
-    themeFlag = !themeFlag;
-    sessionStorage.setItem('themeMode', themeFlag ? 'dark' : 'light');
-    sessionStorage.setItem('selectedTheme', themeFlag ? 'dracula' : 'default');
-    applyThemeSettings();
-    showToast(`Switched to ${themeFlag ? 'dark' : 'light'} mode!`);
-  }
-
-  function applyThemeSettings() {
-    document.documentElement.classList.toggle('day', !themeFlag);
-    themeToggle.innerHTML = themeFlag
-      ? '<i class="fas fa-sun"></i><span class="hidden-mobile">Day</span>'
-      : '<i class="fas fa-moon"></i><span class="hidden-mobile">Night</span>';
-    updateThemeOptions(themeFlag ? darkThemes : lightThemes);
-    const defaultTheme = themeFlag ? 'dracula' : 'default' || savedTheme;
-    themeSelector.value = defaultTheme;
-    loadTheme(defaultTheme);
-  }
-
-  themeToggle.addEventListener('click', toggleTheme);
-  themeSelector.addEventListener('change', function () {
-    loadTheme(this.value);
-  });
-
-  applyThemeSettings();
-
-  function showToast(message) {
-    const toast = document.createElement('div');
-    toast.className = 'toast';
-    toast.innerHTML = `<i class="fas fa-check-circle"></i> ${message}`;
-    document.body.appendChild(toast);
-
-    setTimeout(() => toast.remove(), 3000);
-  }
-
-  const modelDiv = document.createElement('div');
-  const divCloseX = document.createElement('div');
-  const divCopy = document.createElement('div');
-  const divModelImg = document.createElement('div');
-  const modelImg = document.createElement('img');
-  const menu = document.getElementById('menu-toggle');
-  const links = document.querySelector('.btn-con');
-  const blurCon = document.querySelector('.blur');
-  let flag = false;
-
-  async function openShareModel() {
-    modelImg.src = await generateQrCode();
-    modelDiv.className = 'model-div';
-    divCloseX.className = 'model-close';
-    divCloseX.innerHTML = '&times;';
-    divCopy.className = 'model-copy';
-    divCopy.innerHTML = `
-          <button class="share-code btn btn-secondary">
-            <i class="fa-solid fa-copy"></i>
-            COPY URL
-          </button>
-    `;
-    divModelImg.className = 'model-img';
-    divModelImg.appendChild(modelImg);
-    modelDiv.appendChild(divCloseX);
-    modelDiv.appendChild(divCopy);
-    modelDiv.appendChild(divModelImg);
-    document.body.append(modelDiv);
-    if (modelDiv) {
-      modelDiv.style.display = 'block';
-      links.style.display = window.innerWidth <= 768 ? 'none' : 'block';
-      blurCon.style.display = 'none';
-    }
-    const shareCodeUrl = document.querySelector('.share-code');
-    if (shareCodeUrl) {
-      shareCodeUrl.addEventListener('click', copyShareCode);
-    }
-    flag = false;
-  }
-
-  divCloseX.addEventListener('click', () => (modelDiv.style.display = 'none'));
-
-  const closeX = document.createElement('span');
-  closeX.innerHTML = '&times;';
-  closeX.classList.add('closeX');
-
-  menu.addEventListener('click', (e) => {
-    e.stopPropagation();
-    flag = !flag;
-
-    if (flag) {
-      links.style.display = 'block';
-      blurCon.style.display = 'block';
-      links.insertAdjacentElement('afterbegin', closeX);
-      closeX.addEventListener('click', hideLinks, { once: true });
-    } else {
-      hideLinks();
-    }
-  });
-
-  blurCon.addEventListener('click', (e) => {
-    if (e.target === blurCon) {
-      hideLinks();
-    }
-  });
-
-  function hideLinks() {
-    links.style.display = 'none';
-    blurCon.style.display = 'none';
-    flag = false;
-    closeX.remove();
-  }
-
-  function showLoading(show, message = 'Loading...') {
-    loader.style.display = show ? 'block' : 'none';
-    document.querySelector('.loader-container .title').textContent = message;
-  }
-
-  function originalWidthHeight() {
-    if (!editorContainer || !outputContainer || !toggleViewBtn) return;
-    if (window.innerWidth > 768) {
-      editorContainer.style.width = '52%';
-      outputContainer.style.width = '48%';
-      editorContainer.style.height = '100%';
-      outputContainer.style.height = '100%';
-      editorContainer.style.display = 'block';
-      outputContainer.style.display = 'block';
-      editorContainer.classList.remove('editor-fullscreen');
-      outputContainer.classList.remove('output-fullscreen');
-      toggleViewBtn.innerHTML =
-        '<i class="fas fa-exchange-alt"></i><span class="hidden-mobile">Switch</span>';
-      editorView = 0;
-    } else {
-      editorView = 1;
-      outputBtn.style.background = '';
-      editorContainer.style.display = 'block';
-      editorContainer.classList.add('editor-fullscreen');
-      outputContainer.style.display = 'none';
-      toggleViewBtn.innerHTML =
-        '<i class="fas fa-code"></i><span class="hidden-mobile">Switch</span>';
-      editorContainer.style.width = '100%';
-      outputContainer.style.width = '0%';
-      dragbarHorizontal.style.display = 'none';
+  function showFolder() {
+    const emptyState = document.querySelector('.empty-folder');
+    if (emptyState) {
+      emptyState.style.display = 'none';
+      emptyState.innerHTML = '';
     }
   }
 
-  function isMobile() {
-    if (!links || !blurCon || !closeX) return;
-    if (window.innerWidth > 768) {
-      links.style.display = 'flex';
-      closeX.style.display = 'none';
-      blurCon.style.display = 'none';
-      flag = false;
-    } else {
-      links.style.display = 'none';
-      closeX.style.display = 'block';
-      blurCon.style.display = 'none';
+  function showEmptyState(message = 'This folder is empty') {
+    const emptyFolder = document.querySelector('.empty-folder');
+    if (!emptyFolder) {
+      const emptyFolder = document.createElement('div');
+      emptyFolder.className = 'empty-folder';
+      fileList?.appendChild(emptyFolder);
+    }
+
+    const emptyFolderElement = document.querySelector('.empty-folder');
+    if (emptyFolderElement) {
+      emptyFolderElement.style.display = 'block';
+      emptyFolderElement.innerHTML = `
+        <div class="empty-state">
+          <i class="fas fa-folder-open"></i>
+          <p>${message}</p>
+        </div>
+      `;
     }
   }
 
-  function responsive() {
-    originalWidthHeight();
-    isMobile();
-  }
+  info();
+}
 
-  responsive();
-  window.addEventListener('resize', responsive);
+async function info() {
+  try {
+    await fetch('/info', { method: 'POST' });
+  } catch (error) {
+    console.error('Error sending info:', error);
+  }
 }
 
 document.addEventListener('DOMContentLoaded', init);
