@@ -27,29 +27,29 @@
   --bg-secondary: #0e0e0e;
   --color-primary: #ffffff;
   --color-secondary: #cccccc;
-  --accent-color: #ffe600;
+  --accent-color: #00ff99;
   --hover-color: #333333;
   --border-color: #444444;
   --shadow-color: rgb(85, 85, 85);
-  --button-bg: #ffe600;
+  --button-bg: #00ff99;
   --button-color: #313131;
-  --button-hover: #ffc400;
+  --button-hover: #00ff33;
   --editor-selection: rgba(255, 255, 255, 0.1);
   --color-line-number: #e6e6e6;
   --bg-input: #111111;
   --bg-search-con: #4b4b4b;
-  --color-breadcrumb: #ffe600;
-  --btn-search: #ffe600;
-  --btn-search-hover: #ffc400;
+  --color-breadcrumb: #00ff99;
+  --btn-search: #00ff99;
+  --btn-search-hover: #00ff33;
 }
 
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  transition: background-color 0.2s;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
+  transition: background 0.6s linear, color 1s linear;
 }
 
 body {
@@ -60,6 +60,11 @@ body {
   padding: 0;
   margin: 0;
   min-height: 100vh;
+  transition: background 0.6s linear;
+}
+button,
+.sub-folder {
+  transition: background 0.6s linear, color 1s linear !important;
 }
 
 body::-webkit-scrollbar {
@@ -149,7 +154,6 @@ header {
   margin-bottom: 20px;
 }
 
-/* Add this to your existing CSS */
 .search-con {
   display: flex;
   flex-direction: row;
@@ -450,15 +454,15 @@ button.action-btn:hover {
   }
 
   CodeMirror {
-  height: 100%;
-  font-size: 15px;
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  letter-spacing: 0.02rem;
-  line-height: 1.5;
-  padding: 0;
-  background-color: var(--bg-secondary) !important;
-  margin-top: 1.5rem;
-}
+    height: 100%;
+    font-size: 15px;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    letter-spacing: 0.02rem;
+    line-height: 1.5;
+    padding: 0;
+    background-color: var(--bg-secondary) !important;
+    margin-top: 1.5rem;
+  }
 }
 
 @media (max-width: 320px) {
