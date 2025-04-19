@@ -403,7 +403,7 @@ function init() {
 
     if (!query) {
       allItems.forEach((item) => {
-        item.style.display = 'flex'))
+        item.style.display = 'flex';
         const button = item.querySelector('button');
         if (button) button.style.display = 'block';
       });
