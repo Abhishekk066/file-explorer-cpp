@@ -402,7 +402,11 @@ function init() {
     let hasResults = false;
 
     if (!query) {
-      allItems.forEach((item) => (item.style.display = 'flex'));
+      allItems.forEach((item) => {
+        item.style.display = 'flex'))
+        const button = item.querySelector('button');
+        if (button) button.style.display = 'block';
+      });
       showFolder();
       return;
     }
