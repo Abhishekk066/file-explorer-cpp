@@ -407,17 +407,15 @@ function init() {
       return;
     }
 
-    allItems.forEach((item) => {
-      const textContent = item.textContent.trim().toLowerCase();
-      const matches = textContent.includes(query);
+    allItems.forEach(item => {
+      const button = item.querySelector('button');
+      const text = item.textContent.trim().toLowerCase();
+      const matches = text.includes(query);
       item.style.display = matches ? 'flex' : 'none';
-      if (matches) {
-        hasResults = true;
-        const button = item.querySelector('button');
-        if (button) button.style.display = 'none';
-      }
+      if (button) button.style.display = matches ? 'none' : 'block';
+      if (matches) hasResults = true;
     });
-
+    
     hasResults ? showFolder() : showEmptyState('No matching results found');
   }
 
