@@ -327,29 +327,16 @@ if (headerBar) {
 
 function handleResponsive() {
   const isMobile = window.innerWidth <= 480;
-  const middleD = window.innerWidth <= 660;
   const isSmallMobile = window.innerWidth <= 375;
   const isLargerScreen = window.innerWidth <= 1024;
   const buttons = document.querySelectorAll(".action-btn");
   const searchButtonR = document.getElementById("search-button");
   const itemMain = document.querySelectorAll(".item-main");
-  const serachCon = document.querySelector(".search-container");
 
   if (searchButtonR) {
     searchButtonR.innerHTML = isMobile
       ? '<i class="fas fa-search"></i>'
       : '<i class="fas fa-search"></i> Search';
-  }
-
-  if (middleD) {
-    searchButton.style.display = "none";
-    searchInput.style.display = "none";
-    serachCon.style.display = "block";
-    serachCon.style.width = "50px";
-  } else {
-    searchButton.style.display = "block";
-    searchInput.style.display = "block";
-    serachCon.style.display = "flex";
   }
 
   buttons.forEach((btn) => {
