@@ -2,23 +2,30 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
     <title>File Explorer C++</title>
     <link
       rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
     <script src="https://compiler-cpp-production.up.railway.app/codemirror/lib/codemirror.js"></script>
     <script src="https://compiler-cpp-production.up.railway.app/codemirror/mode/clike/clike.js"></script>
     <script src="https://compiler-cpp-production.up.railway.app/codemirror/addon/comment/comment.js"></script>
     <link
       rel="stylesheet"
-      href="https://compiler-cpp-production.up.railway.app/codemirror/theme/monokai.css" />
-     <link
-      rel="stylesheet"
-      href="https://compiler-cpp-production.up.railway.app/codemirror/theme/eclipse.css" />
+      href="https://compiler-cpp-production.up.railway.app/codemirror/theme/monokai.css"
+    />
     <link
       rel="stylesheet"
-      href="https://compiler-cpp-production.up.railway.app/codemirror/lib/codemirror.css" />
+      href="https://compiler-cpp-production.up.railway.app/codemirror/theme/eclipse.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://compiler-cpp-production.up.railway.app/codemirror/lib/codemirror.css"
+    />
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
@@ -38,38 +45,42 @@
     <!-- App Container -->
     <div class="app-container">
       <header>
-        <div class="logo">
+        <a class="logo" href="/">
           <i class="fas fa-folder-tree"></i>
           <span>File Explorer C++</span>
+        </a>
+        <div class="search-container">
+          <input
+            type="text"
+            id="search-input"
+            placeholder="Search files or folders... "
+            autocomplete="off"
+            spellcheck="false"
+            aria-label="Search files or folders"
+          />
+          <button id="search-button" class="action-btn">
+            <i class="fas fa-search"></i>
+          </button>
+          <button
+            id="theme-toggle"
+            class="theme-toggle"
+            aria-label="Toggle theme"
+            style="margin: 0 5px 0 20px"
+          >
+            <i class="fas fa-moon"></i>
+          </button>
         </div>
-        <button
-          id="theme-toggle"
-          class="theme-toggle"
-          aria-label="Toggle theme">
-          <i class="fas fa-moon"></i>
-        </button>
       </header>
       <div class="container">
         <div class="search-con">
-          <div class="search-con-inner">
-            <div id="breadcrumb" class="breadcrumb">
-              <i class="fas fa-home"></i> <span> Home</span>
-            </div>
+          <div id="breadcrumb" class="breadcrumb">
+            <i class="fas fa-home"></i> <span> Home</span>
           </div>
           <div class="search-container">
-            <button class="back">
-              <i class="fa-solid fa-left-long"></i>
-            </button>
-            <input
-              type="text"
-              id="search-input"
-              placeholder="Search files or folders... "
-              autocomplete="off"
-              spellcheck="false"
-              aria-label="Search files or folders" />
-            <button id="search-button" class="action-btn">
-              <i class="fas fa-search"></i>
-            </button>
+            <a class="breadcrumb" href="./Lab_Manual.pdf" target="_blank">
+              <i class="fa-solid fa-book"></i>
+              <span>Lab Manual</span>
+            </a>
           </div>
         </div>
         <div class="empty-folder"></div>
