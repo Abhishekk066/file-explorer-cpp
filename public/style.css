@@ -22,7 +22,7 @@
   --btn-search-hover: #1e185c;
 }
 
-[data-theme='dark'] {
+[data-theme="dark"] {
   --bg-primary: #333333;
   --bg-secondary: #0e0e0e;
   --color-primary: #ffffff;
@@ -55,7 +55,7 @@
 body {
   background: var(--bg-secondary);
   color: var(--color-primary);
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   line-height: 1.6;
   padding: 0;
   margin: 0;
@@ -177,7 +177,6 @@ header {
   align-items: center;
   justify-content: flex-end;
   gap: 10px;
-  flex-grow: 1;
   width: 100%;
 }
 
@@ -190,7 +189,7 @@ header {
   color: var(--color-primary);
   font-size: 0.9rem;
   outline: none;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   letter-spacing: 0.03rem;
 }
 
@@ -393,7 +392,7 @@ button.action-btn {
   white-space: nowrap;
   height: 38px;
   margin: 7px;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
 }
 
 button.action-btn:hover {
@@ -457,7 +456,7 @@ button.action-btn:hover {
   CodeMirror {
     height: 100%;
     font-size: 15px;
-    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-family: "JetBrains Mono", "Fira Code", monospace;
     letter-spacing: 0.02rem;
     line-height: 1.5;
     padding: 0;
@@ -641,7 +640,7 @@ footer {
 .CodeMirror {
   height: 100%;
   font-size: 17px;
-  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-family: "JetBrains Mono", "Fira Code", monospace;
   letter-spacing: 0.02rem;
   line-height: 1.5;
   padding: 0;
