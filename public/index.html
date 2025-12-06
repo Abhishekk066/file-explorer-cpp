@@ -2,29 +2,30 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>C++ Compiler</title>
-    <link
-      href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
-      rel="stylesheet" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>File Explorer C++</title>
     <link
       rel="stylesheet"
-      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css" />
-    <link rel="stylesheet" href="codemirror/lib/codemirror.css" />
-    <link rel="stylesheet" href="codemirror/theme/dracula.css" />
-    <link rel="stylesheet" href="codemirror/addon/hint/show-hint.css" />
-    <link rel="stylesheet" href="codemirror/addon/fold/foldgutter.css" />
-    <script src="codemirror/lib/codemirror.js"></script>
-    <script src="codemirror/mode/clike/clike.js"></script>
-    <script src="codemirror/addon/comment/comment.js"></script>
-    <script src="codemirror/addon/edit/matchbrackets.js"></script>
-    <script src="codemirror/addon/edit/closebrackets.js"></script>
-    <script src="codemirror/addon/selection/active-line.js"></script>
-    <script src="codemirror/addon/lint/lint.js"></script>
-    <script src="codemirror/addon/hint/show-hint.js"></script>
-    <script src="codemirror/addon/fold/foldcode.js"></script>
-    <script src="codemirror/addon/fold/foldgutter.js"></script>
-    <script src="codemirror/addon/fold/brace-fold.js"></script>
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <link rel="stylesheet" href="https://compiler-cpp.onrender.com/codemirror/lib/codemirror.css" />
+    <link rel="stylesheet" href="https://compiler-cpp.onrender.com/codemirror/theme/dracula.css" />
+    <link rel="stylesheet" href="https://compiler-cpp.onrender.com/codemirror/addon/hint/show-hint.css" />
+    <link rel="stylesheet" href="https://compiler-cpp.onrender.com/codemirror/addon/fold/foldgutter.css" />
+    <script src="https://compiler-cpp.onrender.com/codemirror/lib/codemirror.js"></script>
+    <script src="https://compiler-cpp.onrender.com/codemirror/mode/clike/clike.js"></script>
+    <script src="https://compiler-cpp.onrender.com/codemirror/addon/comment/comment.js"></script>
+    <script src="https://compiler-cpp.onrender.com/codemirror/addon/edit/matchbrackets.js"></script>
+    <script src="https://compiler-cpp.onrender.com/codemirror/addon/edit/closebrackets.js"></script>
+    <script src="https://compiler-cpp.onrender.com/codemirror/addon/selection/active-line.js"></script>
+    <script src="https://compiler-cpp.onrender.com/codemirror/addon/lint/lint.js"></script>
+    <script src="https://compiler-cpp.onrender.com/codemirror/addon/hint/show-hint.js"></script>
+    <script src="https://compiler-cpp.onrender.com/codemirror/addon/fold/foldcode.js"></script>
+    <script src="https://compiler-cpp.onrender.com/codemirror/addon/fold/foldgutter.js"></script>
+    <script src="https://compiler-cpp.onrender.com/codemirror/addon/fold/brace-fold.js"></script>  
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
@@ -32,96 +33,65 @@
     <div class="loader-parent">
       <div class="loader-container">
         <div class="loader"></div>
-        <div class="title"></div>
+        <div class="title">Opening in editor, please wait...</div>
       </div>
     </div>
-    <nav class="flex justify-between items-center p-2">
-      <div class="flex">
-        <div class="file-name btn btn-secondary">
-          <i class="fas fa-file-code"></i>
-          <span class="truncate"></span>
-        </div>
-        <div class="output-btn btn btn-secondary">
-          <span>Output</span>
-        </div>
-      </div>
-      <div class="btn-large flex">
-        <button class="run-code btn btn-primary">
-          <i class="fas fa-play"></i>
-          <span>Run</span>
-        </button>
-      </div>
-      <div class="btn-con">
-        <div class="btn-con-inner">
-          <button class="run-code btn btn-primary">
-            <i class="fas fa-play"></i>
-            <span>Run</span>
-          </button>
-          <button class="copy-code btn btn-secondary">
-            <i class="fas fa-copy"></i>
-            <span class="hidden-mobile">Copy</span>
-          </button>
-          <button class="open-model btn btn-secondary">
-            <i class="fa-solid fa-share-nodes"></i>
-            <span class="hidden-mobile">Share</span>
-          </button>
-          <button id="toggle-view" class="btn btn-secondary">
-            <i class="fas fa-exchange-alt"></i>
-            <span>Switch</span>
-          </button>
-          <button class="mode btn btn-secondary">
-            <i class="fa-solid fa-sun"></i>
-            <span class="hidden-mobile">Day</span>
-          </button>
-          <span class="hidden-mobile1">Theme</span>
-          <select name="select" id="theme-selector" class="btn"></select>
-        </div>
-      </div>
-      <button id="menu-toggle" class="hamburger">
-        <i class="fas fa-bars"></i>
-      </button>
-    </nav>
-    <div class="main-container">
-      <div class="blur"></div>
-      <div
-        id="editorContainer"
-        class="editor-container transition-width transition-height w-full h-full">
-        <textarea id="code" class="hidden"></textarea>
-      </div>
-     <div class="dragbar">
-        <div id="dragbar"></div>
-      </div>
-      <div id="dragbar-horizontal"></div>
-      <div
-        id="outputContainer"
-        class="output-container transition-width transition-height w-full h-full">
-        <div id="output"></div>
-        <div class="btn-ab">
-          <button class="run-code btn btn-primary">
-            <i class="fas fa-play"></i>
-            <span>Run</span>
-          </button>
-        </div>
-      </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="toast">
+      <span id="toast-message"></span>
     </div>
-    <div class="status-bar">
-      <div class="flex">
-        <div class="status-item">
-          <i class="fas fa-code-branch"></i>
-          <span>C++</span>
+
+    <!-- App Container -->
+    <div class="app-container">
+      <header>
+        <a class="logo" href="/">
+          <i class="fas fa-folder-tree"></i>
+          <span>File Explorer C++</span>
+        </a>
+        <div class="search-container">
+          <input
+            type="text"
+            id="search-input"
+            placeholder="Search files or folders... "
+            autocomplete="off"
+            spellcheck="false"
+            aria-label="Search files or folders"
+          />
+          <button id="search-button" class="action-btn">
+            <i class="fas fa-search"></i>
+          </button>
+          <button
+            id="theme-toggle"
+            class="theme-toggle"
+            aria-label="Toggle theme"
+            style="margin: 0 5px 0 20px"
+          >
+            <i class="fas fa-moon"></i>
+          </button>
         </div>
-        <div class="status-item">
-          <i class="fas fa-server"></i>
-          <span>Connected</span>
+      </header>
+      <div class="container">
+        <div class="search-con">
+          <div id="breadcrumb" class="breadcrumb">
+            <i class="fas fa-home"></i> <span> Home</span>
+          </div>
+          <div class="manaual">
+            <a class="breadcrumb" href="./Lab_Manual.pdf" target="_blank">
+              <i class="fa-solid fa-book"></i>
+              <span>Lab Manual</span>
+            </a>
+          </div>
         </div>
+        <div class="empty-folder"></div>
+        <div id="file-list"></div>
       </div>
-      <div class="flex">
-        <div class="status-item">
-          <i class="fas fa-clock"></i>
-          <span id="execution-time">0.00s</span>
-        </div>
-      </div>
+
+      <footer>
+        <p>File Explorer C++ &copy; 2025 | Made by Abhishek</p>
+      </footer>
     </div>
+
     <script src="./script.js"></script>
   </body>
 </html>
