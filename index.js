@@ -1,220 +1,277 @@
+import { spawn } from 'child_process';
 import cors from 'cors';
-import 'dotenv/config';
+import crypto from 'crypto';
 import EventEmitter from 'events';
 import express from 'express';
 import fs from 'fs/promises';
+import http from 'http';
 import NodeCache from 'node-cache';
 import fetch from 'node-fetch';
 import path from 'path';
+import QRCode from 'qrcode';
 import { fileURLToPath } from 'url';
+import { WebSocketServer } from 'ws';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 EventEmitter.defaultMaxListeners = 60;
 
 const app = express();
-const githubApiUrl =
-  'https://api.github.com/repos/apk02211/CPP_Solved_Questions_LAB/contents';
-const requestedDomain = 'https://compiler-cpp.onrender.com';
+const server = http.createServer(app);
+const wss = new WebSocketServer({ server });
 
-const codeCache = new NodeCache({ stdTTL: 3600, checkperiod: 600 });
+const mainDomain = 'https://compiler-cpp.onrender.com';
+const requestedDomain = 'https://file-manager-cpp.onrender.com';
 
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(cors());
 
-const getFileIcon = (filename) => {
-  const ext = filename.split('.').pop().toLowerCase();
-  const icons = {
-    cpp: '📄',
-    docx: '📝',
-    md: '📘',
-    txt: '📜',
-  };
-  return icons[ext] || '📂';
-};
+const codeCache = new NodeCache({ stdTTL: 3600, checkperiod: 600 });
 
-const fetchGitHubRepoContents = async (url) => {
+app.use(
+  '/codemirror',
+  express.static(path.join(__dirname, 'node_modules/codemirror')),
+);
+
+app.post('/generate-url', async (req, res) => {
+  const { code, filename } = req.body;
+  if (!code) return res.status(400).json({ error: 'Code is required' });
+
+  const host = req.get('host');
+  const data = { message: true, type: 'default', filename, code };
+  const codeId = crypto.randomUUID();
+  codeCache.set(codeId, data);
+  const route = `/share/${codeId}`;
+  app.use(
+    `${route}/codemirror`,
+    express.static(path.join(__dirname, 'node_modules/codemirror')),
+  );
+  app.use(route, express.static(path.join(__dirname, 'editor')));
+  const url = `https://${host}${route}`;
+  res.status(200).json({ message: true, url });
+});
+
+app.post('/generate-qrcode', async (req, res) => {
+  const { url } = req.body;
+
+  if (!url) {
+    return res.status(400).json({ error: 'URL is required' });
+  }
+
   try {
-    const response = await fetch(url, {
-      headers: {
-        Authorization: `token ${process.env.GITHUB_TOKEN}`,
-        'User-Agent': 'Node.js',
-      },
+    const qrcodeUrl = await QRCode.toDataURL(url, {
+      margin: 2,
     });
+    res.type('image/png').send(qrcodeUrl);
+  } catch (err) {
+    const fallback = await QRCode.toDataURL('not found', { margin: 2 });
+    res.status(500).type('image/png').send(fallback);
+  }
+});
 
-    if (!response.ok) throw new Error(`GitHub API error: ${response.status}`);
+async function sendUrl(req, res) {
+  const fetchUrl = `${requestedDomain}/send-code`;
+  try {
+    const response = await fetch(fetchUrl, { method: 'POST' });
+    if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
 
     const data = await response.json();
-    data.sort((a, b) =>
-      a.name.localeCompare(b.name, undefined, { numeric: true }),
+
+    if (!data.message) return res.status(404).json({ message: false });
+
+    const codeId = crypto.randomUUID();
+    codeCache.set(codeId, data);
+    const route = `/c/${codeId}`;
+    app.use(
+      `${route}/codemirror`,
+      express.static(path.join(__dirname, 'node_modules/codemirror')),
     );
-
-    const items = [];
-
-    for (const item of data) {
-      const isFile = item.type === 'file';
-      if (isFile) {
-        const entry = {
-          type: item.type,
-          name: item.name,
-          path: item.path,
-          icon: getFileIcon(item.name),
-          html_url: item.html_url,
-          url: item.url,
-          download_url: item.download_url,
-        };
-        items.push(entry);
-      } else {
-        const entry = {
-          type: item.type,
-          name: item.name,
-          path: item.path,
-          icon: getFileIcon(item.name),
-          html_url: item.html_url,
-          url: item.url,
-        };
-        items.push(entry);
-      }
-    }
-
-    return items;
+    app.use(route, express.static(path.join(__dirname, 'editor')));
+    const url = `${mainDomain}${route}`;
+    res.status(200).json({ message: true, url });
   } catch (error) {
-    return [];
+    return res
+      .status(500)
+      .json({ error: 'Failed to fetch code from external service' });
   }
-};
+}
 
-const fetchFileContent = async (url) => {
+app.post('/send-url', sendUrl);
+
+app.post('/code/c/:id', (req, res) => {
+  const codeId = req.params.id;
+  let code = codeCache.get(codeId);
+
+  if (!code) {
+    return res
+      .status(404)
+      .send('<script>window.location.replace(' / ');</script>');
+  }
+
+  res.send(code);
+});
+
+app.post('/code/share/:id', (req, res) => {
+  const codeId = req.params.id;
+  let code = codeCache.get(codeId);
+
+  if (!code) {
+    return res
+      .status(404)
+      .send("<script>window.location.replace('/');</script>");
+  }
+
+  res.send(code);
+});
+
+app.post('/default-code', async (req, res) => {
   try {
-    const response = await fetch(url, {
-      headers: {
-        Authorization: `token ${process.env.GITHUB_TOKEN}`,
-        'User-Agent': 'Node.js',
-      },
-    });
-
-    if (!response.ok)
-      throw new Error(`GitHub API error (content): ${response.status}`);
-
-    const data = await response.json();
-    return Buffer.from(data.content, 'base64').toString('utf-8');
-  } catch (error) {
-    return null;
-  }
-};
-
-app.post('/send-file', async (req, res) => {
-  const { folderName, url } = req.body;
-  let savedFile = codeCache.get(folderName);
-  if (!savedFile) {
-    savedFile = await fetchGitHubRepoContents(url);
-    codeCache.set(folderName, savedFile);
-  }
-  res.json(savedFile);
-});
-
-app.post('/send-folder', async (req, res) => {
-  let savedFolder = codeCache.get('repo-folder');
-  if (!savedFolder) {
-    const items = await fetchGitHubRepoContents(githubApiUrl);
-    savedFolder = {
-      folders: items.filter((i) => i.type === 'dir'),
-      files: items.filter((i) => i.type === 'file'),
-    };
-    codeCache.set('repo-folder', savedFolder);
-  }
-
-  res.json(savedFolder);
-});
-
-let updatedFiles = {};
-app.post('/content', async (req, res) => {
-  try {
-    const { fileName, url, download_url } = req.body;
-    let content = codeCache.get(fileName);
-    if (!content) {
-      content = await fetchFileContent(url);
-      codeCache.set(fileName, content);
-    }
-    const data = {
-      filename: fileName,
-      code: content,
-      download_url,
-    };
-    updatedFiles.data = data;
-    res.status(200).json({ message: 'success' });
-  } catch (error) {
-    res.status(404).json({ message: 'Something went wrong' });
-  }
-});
-
-app.post('/send-code', (req, res) => {
-  if (updatedFiles.data) {
     res.json({
-      message: true,
-      type: 'editor',
-      ...updatedFiles.data,
+      type: 'default',
+      filename: 'main.cpp',
+      code: `#include <iostream>
+using namespace std;
+
+int main() {
+    cout << "Hello, Abhishek";
+    return 0;
+}`,
+    });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ error: 'Failed to fetch code from external service' });
+  }
+});
+
+app.post('/get-theme', (req, res) => {
+  const { themeMode } = req.body;
+  if (themeMode === 'light') {
+    app.get('/redirect-day', (req, res) => {
+      res.sendFile(path.join(__dirname, '404_day.html'));
     });
   } else {
-    res.json({ message: false });
-  }
-});
-
-app.post('/get-url', async (req, res) => {
-  try {
-    const response = await fetch(`${requestedDomain}/send-url`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    app.get('/redirect-night', (req, res) => {
+      res.sendFile(path.join(__dirname, '404.html'));
     });
-    if (!response.ok) throw new Error('Fetch failed');
-
-    const data = await response.json();
-    res.status(data.message ? 200 : 404).json(data);
-  } catch (error) {
-    res.status(404).json({ message: 'not found' });
   }
+
+  res.json({ message: true, themeMode });
 });
 
-const authenticate = (req, res, next) => {
-  if (!process.env.ADMIN_KEY)
-    return res.status(401).json({ error: 'Unauthorized' });
+wss.on('connection', (ws) => {
+  const clientId = crypto.randomUUID();
+  let sourceFile = path.join(__dirname, `code_${clientId}.cpp`);
+  let outputFile = path.join(__dirname, `code_${clientId}.exe`);
+  let cppProcess = null;
 
-  const token = req.headers.authorization?.split(' ')[1];
-  if (token === process.env.ADMIN_KEY) return next();
+  ws.on('message', async (message) => {
+    try {
+      const data = JSON.parse(message);
 
-  res.status(403).json({ error: 'Forbidden' });
-};
+      if (data.type === 'code') {
+        if (cppProcess) {
+          cppProcess.kill();
+          cppProcess = null;
+        }
 
-app.post('/info', async (req, res) => {
-  const filePath = path.join(__dirname, 'info.txt');
-  const logData = `<span>IP:</span> ${req.ip}\n<span>User-Agent:</span> ${
-    req.headers['user-agent']
-  }\n<span>Date:</span> ${new Date().toLocaleString()}<hr>\n`;
+        await fs.writeFile(sourceFile, data.code);
+        await deleteFileIfExists(outputFile);
 
-  try {
-    const content = await fs.readFile(filePath, 'utf8').catch(() => '');
-    if (!content.includes(`<span>IP:</span> ${req.ip}`))
-      await fs.appendFile(filePath, logData);
+        const compile = spawn('g++', [sourceFile, '-o', outputFile]);
+        let compileError = '';
 
-    res.send(
-      content.includes(`<span>IP:</span> ${req.ip}`)
-        ? 'IP already logged.'
-        : 'New IP logged.',
-    );
-  } catch (err) {
-    res.status(500).json({ error: 'Server error' });
-  }
+        compile.stderr.on('data', (error) => {
+          compileError += error.toString();
+        });
+
+        compile.on('close', async (code) => {
+          if (code !== 0) {
+            ws.send(JSON.stringify({ type: 'error', message: compileError }));
+            return;
+          }
+
+          ws.send(
+            JSON.stringify({
+              type: 'compiled',
+              message: 'Compiled Successfully!',
+            }),
+          );
+
+          cppProcess = spawn(outputFile);
+
+          ws.send(JSON.stringify({ type: 'running', message: 'Running...' }));
+
+          cppProcess.stdout.on('data', (output) => {
+            ws.send(
+              JSON.stringify({ type: 'output', message: output.toString() }),
+            );
+
+            if (output.toString().includes('Enter')) {
+              ws.send(JSON.stringify({ type: 'input-request' }));
+            }
+          });
+
+          cppProcess.stderr.on('data', (error) => {
+            ws.send(
+              JSON.stringify({ type: 'error', message: error.toString() }),
+            );
+          });
+
+          cppProcess.on('close', () => {
+            ws.send(
+              JSON.stringify({
+                type: 'finished',
+                message: 'Execution Finished.',
+              }),
+            );
+          });
+        });
+      } else if (data.type === 'input' && cppProcess) {
+        cppProcess.stdin.write(data.input + '\n');
+      }
+    } catch (err) {
+      ws.send(
+        JSON.stringify({ type: 'error', message: 'Internal Server Error' }),
+      );
+    }
+  });
+
+  ws.on('close', async () => {
+    if (cppProcess) cppProcess.kill();
+    await deleteFileIfExists(sourceFile);
+    await deleteFileIfExists(outputFile);
+  });
 });
 
-app.get('/delete-info', authenticate, async (req, res) => {
-  const filePath = path.join(__dirname, 'info.txt');
+process.on('SIGINT', async () => {
+  const files = await fs.readdir(__dirname);
+  for (const file of files) {
+    if (
+      file.startsWith('code_') &&
+      (file.endsWith('.cpp') || file.endsWith('.exe'))
+    ) {
+      await deleteFileIfExists(path.join(__dirname, file));
+    }
+  }
+
+  process.exit();
+});
+
+/**
+ * @param {string} filePath
+ */
+async function deleteFileIfExists(filePath) {
   try {
+    await fs.access(filePath);
     await fs.unlink(filePath);
-    res.send('info.txt deleted successfully!');
-  } catch (error) {
-    res.status(404).send('File not found!');
+  } catch (err) {
+    if (err.code !== 'ENOENT') {
+      console.error(`Error deleting ${filePath}:`, err);
+    }
   }
-});
+}
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT);
+server.listen(10000);

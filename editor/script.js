@@ -9,21 +9,46 @@ async function init() {
   const fullEditor = document.querySelector('.file-name');
   let editorView = 0;
   let editor;
-
+  const pathName = window.location.pathname;
   if (window.location.href.endsWith('/')) {
     history.pushState(null, '', window.location.href.replace(/\/$/, ''));
   }
 
   try {
-    const res = await fetch('/default-code', { method: 'POST' });
-    const data = await res.json();
+    const res = await fetch(`/code${pathName}`, { method: 'POST' });
     if (!res.ok) {
-      throw new Error('Something went wrong.');
+      (async () => {
+        const redirect = await fetch('/get-theme', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            themeMode: sessionStorage.getItem('themeMode') || null,
+          }),
+        });
+
+        if (!redirect.ok) {
+          throw new Error('Something went wrong');
+        }
+
+        const getTheme = await redirect.json();
+        if (getTheme.themeMode === 'light') {
+          window.location.replace('/redirect-day');
+        } else {
+          window.location.replace('/redirect-night');
+        }
+      })();
+      return;
     }
 
+    const data = await res.json();
+
     document.getElementById('code').textContent = data.code;
-    const filterFileName = data.filename.toString().split('/');
-    fileNameEditor.textContent = filterFileName[1] || data.filename;
+
+    const fileName = data.filename.toString().split('/').pop();
+    fileNameEditor.textContent = fileName;
+    document.querySelector('title').textContent = fileName;
   } catch (e) {
     console.error(e);
   }
