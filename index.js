@@ -38,7 +38,6 @@ const fetchGitHubRepoContents = async (url) => {
   try {
     const response = await fetch(url, {
       headers: {
-        Authorization: `token ${process.env.GITHUB_TOKEN}`,
         'User-Agent': 'Node.js',
       },
     });
